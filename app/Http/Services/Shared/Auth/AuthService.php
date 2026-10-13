@@ -85,7 +85,7 @@ class AuthService extends BaseService
         if ($request->otp != '11111') {
             $userOtp->update(['expire_at' => now()]);
         }
-        $token = $user->createToken($request->apiKey, [$user->roles->pluck('name')[0] ?? ''])->plainTextToken;
+        $token = $user->createToken($request->apiKey ?? 'mobile', [$user->roles->pluck('name')[0] ?? ''])->plainTextToken;
 
         return buildApiResponseHelper(true, 'تم تسجيل الدخول بنجاح', [
             'user' => $this->buildResponseLoginWithOtp($user),
