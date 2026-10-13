@@ -112,6 +112,7 @@ class AuthService extends BaseService
             'status' => StatusUserEnum::Active->value,
         ]);
 
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => UserRoleEnum::User->value, 'guard_name' => 'web']);
         $user->assignRole(UserRoleEnum::User->value);
 
         return $user;

@@ -25,6 +25,7 @@ class RegisterVendorService
             'status' => StatusUserEnum::Pending->value,
         ]);
 
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => UserRoleEnum::Vendor->value, 'guard_name' => 'web']);
         $createUser->assignRole(UserRoleEnum::Vendor->value);
 
         if (!empty($request->fcmToken)) {
