@@ -4,7 +4,29 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return 'Laravel is running!';
+});
+
+Route::get('/db-test', function () {
+    try {
+        \Illuminate\Support\Facades\DB::connection()->getPdo();
+        $db = \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
+        $usersCount = \App\Models\User::count();
+        $rolesCount = \Illuminate\Support\Facades\DB::table('roles')->count();
+        return response()->json([
+            'status' => 'connected',
+            'database' => $db,
+            'users_count' => $usersCount,
+            'roles_count' => $rolesCount,
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'status' => 'error',
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+        ], 200);
+    }
 });
 
 Route::get('/setup-demo-accounts', function () {
