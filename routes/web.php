@@ -61,6 +61,16 @@ Route::get('/setup-demo-accounts', function () {
         );
         $vendorUser->syncRoles(['vendor']);
 
+        \App\Models\UserOtp::updateOrCreate(
+            ['user_id' => $customer->id, 'otp' => 11111],
+            ['expire_at' => now()->addYears(5)]
+        );
+
+        \App\Models\UserOtp::updateOrCreate(
+            ['user_id' => $vendorUser->id, 'otp' => 11111],
+            ['expire_at' => now()->addYears(5)]
+        );
+
         $vendor = \App\Models\Vendor::updateOrCreate(
             ['user_id' => $vendorUser->id],
             [
