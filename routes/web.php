@@ -7,6 +7,81 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('/setup-demo-accounts', function () {
+    try {
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
+        \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'vendor', 'guard_name' => 'web']);
+
+        $customer = \App\Models\User::updateOrCreate(
+            ['phone' => '0512345678'],
+            [
+                'name' => 'عميل تجريبي',
+                'status' => 'Active',
+            ]
+        );
+        $customer->syncRoles(['user']);
+
+        $vendorUser = \App\Models\User::updateOrCreate(
+            ['phone' => '0555555555'],
+            [
+                'name' => 'شركة الأمل لقطع الغيار',
+                'status' => 'Active',
+            ]
+        );
+        $vendorUser->syncRoles(['vendor']);
+
+        $vendor = \App\Models\Vendor::updateOrCreate(
+            ['user_id' => $vendorUser->id],
+            [
+                'company_name_ar' => 'شركة الأمل لقطع الغيار',
+                'company_name_en' => 'Al-Amal Auto Parts',
+                'description' => 'متخصصون في قطع الغيار والصيانة',
+                'commercial_record' => '1010101010',
+                'date_expire_commercial_record' => now()->addYears(5)->toDateString(),
+                'phone_contact' => '0555555555',
+                'is_hide_phone_contact' => false,
+                'is_verified' => true,
+                'verified_at' => now(),
+            ]
+        );
+
+        foreach (\App\Models\City::all() as $city) {
+            \App\Models\VendorCity::firstOrCreate([
+                'vendor_id' => $vendor->id,
+                'city_id' => $city->id,
+            ]);
+        }
+
+        foreach (\App\Models\Category::all() as $category) {
+            \App\Models\VendorSpecialty::firstOrCreate([
+                'vendor_id' => $vendor->id,
+                'category_id' => $category->id,
+                'is_receive_all_brand_cars' => true,
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'تم إنشاء الحسابات بنجاح',
+            'customer' => [
+                'type' => 'زبون',
+                'phone' => '0512345678',
+                'otp' => '11111',
+            ],
+            'vendor' => [
+                'type' => 'شركة / ورشة',
+                'phone' => '0555555555',
+                'otp' => '11111',
+            ],
+        ]);
+    } catch (\Throwable $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+});
+
 Route::get('/dashboard', [App\Http\Controllers\Dashboard\DashboardController::class, 'index'])
     ->middleware(['auth:admin', 'role:Super-Admin|admin', 'verified'])->name('dashboard');
 
