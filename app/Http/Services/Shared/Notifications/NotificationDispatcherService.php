@@ -50,9 +50,17 @@ class NotificationDispatcherService extends BaseService
             notificationId: $notificationId,
         );
 
-        SendPushNotificationJob::dispatch($payload->toArray());
+        try {
+            SendPushNotificationJob::dispatch($payload->toArray());
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('[Notification] Push dispatch failed: ' . $e->getMessage());
+        }
 
-        $this->badgeBroadcaster->broadcast($userId, $category);
+        try {
+            $this->badgeBroadcaster->broadcast($userId, $category);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('[Notification] Badge broadcast failed: ' . $e->getMessage());
+        }
     }
 
     /**

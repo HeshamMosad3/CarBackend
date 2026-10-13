@@ -50,6 +50,9 @@ class FcmClient
 
         $url = $this->endpoint();
         $auth = $this->accessToken();
+        if (empty($auth)) {
+            return [];
+        }
 
         $promises = [];
         foreach ($tokens as $token) {
@@ -193,7 +196,8 @@ class FcmClient
             } elseif ($credentialsPath && file_exists($credentialsPath)) {
                 $client->setAuthConfig($credentialsPath);
             } else {
-                throw new Exception('Firebase credentials not found. Please set FIREBASE_CREDENTIALS env var or add the json file.');
+                Log::warning('[FCM] Firebase credentials not found. Push notifications will be skipped.');
+                return '';
             }
 
             $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
@@ -201,7 +205,8 @@ class FcmClient
             $token = $client->fetchAccessTokenWithAssertion();
 
             if (empty($token['access_token'])) {
-                throw new Exception('Failed to mint FCM OAuth access token: ' . json_encode($token));
+                Log::warning('[FCM] Failed to mint FCM OAuth access token: ' . json_encode($token));
+                return '';
             }
 
             $ttl = max(60, (int) ($token['expires_in'] ?? 3600) - 300);

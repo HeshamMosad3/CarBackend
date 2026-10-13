@@ -40,7 +40,11 @@ class RequestController extends Controller
             ['eligibleVendors' => $eligibleVendors, 'requestId' => $newRequestId] = $this->requestService->confirmRequest($request);
 
             DB::commit();
-            $this->notifyRequestToEligibleVendors($eligibleVendors, $newRequestId);
+            try {
+                $this->notifyRequestToEligibleVendors($eligibleVendors, $newRequestId);
+            } catch (\Throwable $notifEx) {
+                \Illuminate\Support\Facades\Log::warning('Failed to dispatch notification on confirmRequest: ' . $notifEx->getMessage());
+            }
 
             return buildApiResponseHelper(true, 'تم إرسال الطلب بنجاح ... سيتم الرد عليك من خلال الشركات المؤهلة لاحقاً');
         } catch (Exception $e) {

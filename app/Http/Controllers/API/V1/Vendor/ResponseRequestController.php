@@ -42,14 +42,18 @@ class ResponseRequestController extends Controller
 
             DB::commit();
 
-            $this->notifyByID(
-                $requestResponse->user_id,
-                'رد جديد',
-                'تم الرد على طلبك من ' . ' ' . $requestResponse->company_name_ar,
-                true,
-                NotificationCategoryEnum::VendorResponse,
-                $request->requestId
-            );
+            try {
+                $this->notifyByID(
+                    $requestResponse->user_id,
+                    'رد جديد',
+                    'تم الرد على طلبك من ' . ' ' . $requestResponse->company_name_ar,
+                    true,
+                    NotificationCategoryEnum::VendorResponse,
+                    $request->requestId
+                );
+            } catch (\Throwable $notifEx) {
+                \Illuminate\Support\Facades\Log::warning('Failed to dispatch notification on sendResponseRequest: ' . $notifEx->getMessage());
+            }
 
             return buildApiResponseHelper(true, 'تم ارسال الرد بنجاح');
         } catch (\Exception $e) {
