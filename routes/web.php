@@ -13,11 +13,17 @@ Route::get('/db-test', function () {
         $db = \Illuminate\Support\Facades\DB::connection()->getDatabaseName();
         $usersCount = \App\Models\User::count();
         $rolesCount = \Illuminate\Support\Facades\DB::table('roles')->count();
+        $categoriesCount = \App\Models\Category::count();
+        $citiesCount = \App\Models\City::count();
+        $brandsCount = \App\Models\BrandCar::count();
         return response()->json([
             'status' => 'connected',
             'database' => $db,
             'users_count' => $usersCount,
             'roles_count' => $rolesCount,
+            'categories_count' => $categoriesCount,
+            'cities_count' => $citiesCount,
+            'brands_count' => $brandsCount,
         ]);
     } catch (\Throwable $e) {
         return response()->json([
