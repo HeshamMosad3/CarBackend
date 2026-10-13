@@ -31,6 +31,8 @@ Route::get('/db-test', function () {
 
 Route::get('/setup-demo-accounts', function () {
     try {
+        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--force' => true]);
+
         \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'user', 'guard_name' => 'web']);
         \Spatie\Permission\Models\Role::firstOrCreate(['name' => 'vendor', 'guard_name' => 'web']);
 
