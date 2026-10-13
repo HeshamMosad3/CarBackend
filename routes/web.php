@@ -16,14 +16,15 @@ Route::get('/db-test', function () {
         $categoriesCount = \App\Models\Category::count();
         $citiesCount = \App\Models\City::count();
         $brandsCount = \App\Models\BrandCar::count();
+        $requests = \App\Models\RequestCustomer::all();
+        $responses = \App\Models\RequestResponse::all();
         return response()->json([
             'status' => 'connected',
             'database' => $db,
-            'users_count' => $usersCount,
-            'roles_count' => $rolesCount,
-            'categories_count' => $categoriesCount,
-            'cities_count' => $citiesCount,
-            'brands_count' => $brandsCount,
+            'users' => \App\Models\User::all(['id', 'phone', 'name']),
+            'vendors' => \App\Models\Vendor::all(['id', 'user_id', 'company_name_ar']),
+            'requests' => $requests,
+            'responses' => $responses,
         ]);
     } catch (\Throwable $e) {
         return response()->json([
