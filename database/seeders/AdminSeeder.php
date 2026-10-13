@@ -17,12 +17,16 @@ class AdminSeeder extends Seeder
      */
     public function run(): void
     {
-        $admin = Admin::create([
-            'user_id' => 1,
-            'email' => 'admin@gmail.com',
-            'password' => Hash::make('12345678'),
-        ]);
-        $admin->assignRole(UserRoleEnum::Super_Admin->value);
+        $admin = Admin::firstOrCreate(
+            ['email' => 'admin@gmail.com'],
+            [
+                'user_id' => 1,
+                'password' => Hash::make('12345678'),
+            ]
+        );
+        if (!$admin->hasRole(UserRoleEnum::Super_Admin->value)) {
+            $admin->assignRole(UserRoleEnum::Super_Admin->value);
+        }
         // $admin = User::Where('phone', '0502782857')->first();
 
         // if (empty($admin)) {
