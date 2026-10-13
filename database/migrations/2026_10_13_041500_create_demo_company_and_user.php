@@ -45,6 +45,7 @@ return new class extends Migration
                 'company_name_en' => 'Al-Amal Auto Parts',
                 'description' => 'متخصصون في جميع قطع غيار السيارات والصيانة',
                 'commercial_record' => '1010101010',
+                'date_expire_commercial_record' => now()->addYears(5)->toDateString(),
                 'phone_contact' => '0599999999',
                 'is_hide_phone_contact' => false,
                 'is_verified' => true,
