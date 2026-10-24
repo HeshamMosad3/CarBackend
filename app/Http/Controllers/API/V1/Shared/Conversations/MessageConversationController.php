@@ -58,6 +58,12 @@ class MessageConversationController extends Controller
         $userId = getCurrUserIdHelper();
         $receiverId = Conversation::getReceiverId($request->conversationId, $userId);
 
+        // Once the customer cancels the request the chat stays readable, but the vendor can't write to it.
+        $conversation = Conversation::find($request->conversationId);
+        if ($conversation && (int) $userId !== (int) $conversation->user_id && $conversation->isRequestCanceled()) {
+            return buildApiResponseHelper(false, 'لا يمكن إرسال رسالة لأن الطلب ملغي');
+        }
+
         $fileName = UploadUtils::uploadImageToStorage($request->image);
 
         $created = MessageConversation::create([

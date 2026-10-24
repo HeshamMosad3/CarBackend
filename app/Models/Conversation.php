@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\RequestCustomerStatusEnum;
 use Illuminate\Database\Eloquent\Model;
 
 class Conversation extends Model
@@ -12,6 +13,13 @@ class Conversation extends Model
         'request_id',
         'response_id'
     ];
+
+    public function isRequestCanceled(): bool
+    {
+        return RequestCustomer::where('id', $this->request_id)
+            ->where('status', RequestCustomerStatusEnum::Canceled->value)
+            ->exists();
+    }
 
     public static function getReceiverId($conversationId, $currentUserId)
     {

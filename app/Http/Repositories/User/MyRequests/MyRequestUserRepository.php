@@ -10,12 +10,18 @@ use App\Models\RequestCustomer;
 use App\Models\RequestCustomFieldValue;
 use App\Models\RequestImage;
 use App\Models\RequestResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class MyRequestUserRepository
 {
     public function getMyRequest()
     {
+        // JSON_UNQUOTE is MySQL-only; SQLite (local dev) uses json_extract directly.
+        $notificationTargetId = DB::connection()->getDriverName() === 'sqlite'
+            ? 'json_extract(data, "$.target_id")'
+            : 'JSON_UNQUOTE(JSON_EXTRACT(data, "$.target_id"))';
+
         return RequestCustomer::leftJoinCity()
             ->leftJoinCategory()
             ->where('request_customers.user_id', getCurrUserIdHelper())
@@ -38,7 +44,7 @@ class MyRequestUserRepository
                      WHERE notifiable_id = request_customers.user_id
                      AND read_at IS NULL
                      AND notifiable_type LIKE "%User%"
-                     AND (JSON_UNQUOTE(JSON_EXTRACT(data, "$.target_id")) = request_customers.id)
+                     AND (' . $notificationTargetId . ' = request_customers.id)
                     )
                 ) as unread_activity_count
                 '

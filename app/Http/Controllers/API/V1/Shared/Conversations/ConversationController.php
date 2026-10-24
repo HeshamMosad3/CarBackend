@@ -17,6 +17,15 @@ class ConversationController extends Controller
     {
     }
 
+    public function status($conversationId)
+    {
+        $conversation = Conversation::findOrFail($conversationId);
+
+        return buildApiResponseHelper(true, 'تم التحميل بنجاح', [
+            'is_request_canceled' => $conversation->isRequestCanceled(),
+        ]);
+    }
+
     private function fixVendorConversationIds()
     {
         try {

@@ -71,16 +71,17 @@ class NotificationCountsService
     }
 
     /**
-     * Maps the vendor side of a conversation from vendors.id to
-     * vendors.user_id — the badge controller used to compare a vendors PK
-     * against a users.id directly, which meant vendor accounts never saw
-     * their unread conversation count.
+     * Counts unread messages across every conversation the user is part of,
+     * as the customer or as the vendor (see the vendor_id note below).
      */
     private function conversationCounts(int $userId): array
     {
         $vendorId = Vendor::where('user_id', $userId)->value('id');
 
+        // conversations.vendor_id holds the vendor's users.id (ConversationController
+        // normalizes to it), with vendors.id kept as a legacy match.
         $conversationIds = Conversation::where('user_id', $userId)
+            ->orWhere('vendor_id', $userId)
             ->when($vendorId, fn ($q) => $q->orWhere('vendor_id', $vendorId))
             ->pluck('id');
 

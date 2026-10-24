@@ -24,6 +24,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         Route::post('/create-conversation', 'store');
         Route::get('/user-conversations', 'getUserConversations');
         Route::get('/vendor-conversations', 'getVendorConversations');
+        Route::get('/{conversationId}/status', 'status');
     });
 
     Route::prefix('/notifications')->group(function () {
