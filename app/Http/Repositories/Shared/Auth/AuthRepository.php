@@ -42,7 +42,7 @@ class AuthRepository implements RepositoryInterface
         ]);
     }
 
-    public function getLatestUserOtpByOtp($id, $otp): UserOtp
+    public function getLatestUserOtpByOtp($id, $otp): ?UserOtp
     {
         return UserOtp::where('user_id', $id)->where('otp', $otp)->latest()->first();
     }
