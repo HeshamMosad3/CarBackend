@@ -23,9 +23,16 @@ class Vendor extends Model
         'is_verified',
         'verification_notes',
         'verified_at',
+        'store_name',
+        'store_city',
+        'store_address',
+        'store_lat',
+        'store_lng',
     ];
 
     protected $casts = [
+        'store_lat' => 'double',
+        'store_lng' => 'double',
         'rating' => 'float',
         'is_hide_phone_contact' => 'boolean',
         'is_verified' => 'boolean',

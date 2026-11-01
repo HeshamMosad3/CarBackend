@@ -23,6 +23,10 @@ class ConfirmShippingRequest extends FormRequest
             'cityOriginDimensions'       => ['required', 'string', 'max:255'],
             'addressOriginDimensions'       => ['required', 'string', 'max:255'],
             'phoneOriginDimensions'       => ['required', 'string', 'max:20'],
+            // Delivery point on the map. Optional so older app builds that don't send it keep working.
+            'nameDestination'     => ['nullable', 'string', 'max:255'],
+            'latDestination'      => ['nullable', 'numeric', 'between:-90,90'],
+            'lngDestination'      => ['nullable', 'numeric', 'between:-180,180'],
         ];
     }
 

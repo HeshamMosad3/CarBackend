@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API\V1\User\MyRequests;
 
 use App\Enums\RequestCustomerStatusEnum;
 use App\Http\Controllers\Controller;
+use App\Http\Services\Shared\ShippingWorkflowService;
 use App\Http\Services\User\MyRequests\MyRequestUserService;
 use App\Models\RequestCustomer;
 use Illuminate\Http\Request;
@@ -13,7 +14,10 @@ use Illuminate\Validation\Rule;
 
 class MyRequestUserController extends Controller
 {
-    public function __construct(protected MyRequestUserService $myRequestUserService) {}
+    public function __construct(
+        protected MyRequestUserService $myRequestUserService,
+        protected ShippingWorkflowService $shippingWorkflow,
+    ) {}
 
     public function getMyRequest(Request $request)
     {
@@ -61,6 +65,10 @@ class MyRequestUserController extends Controller
 
         if (! $requestCustomer->save())
             return buildApiResponseHelper(false, 'لم يتم التعديل بنجاح');
+
+        if ($request->status == RequestCustomerStatusEnum::Canceled->value) {
+            $this->shippingWorkflow->cancelOpenForRequest((int) $requestCustomer->id, 'ألغى الزبون الطلب');
+        }
 
         $message = '';
 

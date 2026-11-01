@@ -24,7 +24,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Swap this binding for the real gateway implementation when one is added.
+        $this->app->bind(
+            \App\Contracts\ShippingPaymentGateway::class,
+            \App\Services\Payments\NullShippingPaymentGateway::class
+        );
     }
 
     /**

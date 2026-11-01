@@ -27,6 +27,14 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         Route::get('/{conversationId}/status', 'status');
     });
 
+    Route::prefix('/shipping')->controller(App\Http\Controllers\API\V1\Shared\ShippingController::class)->group(function () {
+        Route::get('/store-address', 'storeAddress');
+        Route::get('/by-response/{requestId}/{responseId}', 'showByResponse')->whereNumber(['requestId', 'responseId']);
+        Route::post('/{id}/approve', 'approve')->whereNumber('id');
+        Route::post('/{id}/cancel', 'cancel')->whereNumber('id');
+        Route::post('/{id}/pay', 'pay')->whereNumber('id');
+    });
+
     Route::prefix('/notifications')->group(function () {
         Route::get('/unread-counts', [App\Http\Controllers\API\NotificationBadgeController::class, 'unreadCounts']);
         Route::post('/mark-category-read', [App\Http\Controllers\API\NotificationBadgeController::class, 'markCategoryRead']);

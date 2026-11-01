@@ -26,6 +26,7 @@ class ShippingRequest extends Model
         'width',
         'height',
         'weight',
+        'packages',
         'id_number_user',
         'city_origin_dimensions',
         'address_origin_dimensions',
@@ -35,7 +36,43 @@ class ShippingRequest extends Model
         'amount_rate_app',
         'is_user_confirmed',
         'oto_id',
+        'shipping_cost',
+        'cost_sent_at',
+        'payment_due_at',
+        'payment_reminded_at',
+        'payment_status',
+        'paid_at',
+        'refunded_at',
+        'refund_note',
+        'carrier_name',
+        'tracking_number',
+        'pickup_details',
+        'name_destination',
+        'lat_destination',
+        'lng_destination',
+        'admin_notes',
+        'cancel_reason',
+        'status_changed_at',
+        'active_key',
     ];
+
+    protected static function booted(): void
+    {
+        // Keep the "one open shipment per response" key in step with the status. Legacy rows are
+        // left out on purpose: they predate the guard and must not block vendors from re-sending.
+        static::saving(function (self $shippingRequest) {
+            $status = $shippingRequest->status;
+            $shippingRequest->active_key = ($status instanceof StatusShippingRequestEnum && !$status->isTerminal())
+                ? $shippingRequest->request_id . '-' . $shippingRequest->response_id
+                : null;
+        });
+    }
+
+    /** The open new-flow shipment for a request/response pair, if any. */
+    public static function findOpenFor(int $requestId, int $responseId): ?self
+    {
+        return self::where('active_key', $requestId . '-' . $responseId)->first();
+    }
 
     protected $casts = [
         'length' => 'double',
@@ -46,6 +83,16 @@ class ShippingRequest extends Model
         'amount_rate_app' => 'double',
         'is_user_confirmed' => 'boolean',
         'status' => StatusShippingRequestEnum::class,
+        'packages' => 'array',
+        'shipping_cost' => 'double',
+        'lat_destination' => 'double',
+        'lng_destination' => 'double',
+        'cost_sent_at' => 'datetime',
+        'payment_due_at' => 'datetime',
+        'payment_reminded_at' => 'datetime',
+        'paid_at' => 'datetime',
+        'refunded_at' => 'datetime',
+        'status_changed_at' => 'datetime',
     ];
 
     protected function shippingRequestDate(): Attribute

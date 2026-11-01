@@ -128,7 +128,10 @@ class OTOServiceUtils
                 $data = $response->json();
                 $token = $data['access_token'] ?? '';
                 if (!empty($token)) {
-                    cache()->put('oto_access_token', $token, now()->addHours(2));
+                    // OTO tokens last `expires_in` seconds (3600). Keep ours a little shorter so we never
+                    // hand out one that is about to expire; a longer cache means 401 "Jwt is expired".
+                    $lifetime = max(60, (int) ($data['expires_in'] ?? 3600) - 300);
+                    cache()->put('oto_access_token', $token, now()->addSeconds($lifetime));
                 }
                 return $token;
             }
@@ -139,6 +142,30 @@ class OTOServiceUtils
             Log::error('OTO Refresh Token Exception: ' . $e->getMessage());
             return '';
         }
+    }
+
+    /**
+     * POSTs to OTO with the bearer token. If OTO answers 401 (token expired or revoked) the cached
+     * token is dropped and the call is repeated once with a fresh one.
+     */
+    private function authorizedPost(string $path, array $body, $accessToken)
+    {
+        $send = fn ($token) => Http::timeout(15)->withHeaders([
+            'Authorization' => 'Bearer ' . $token,
+            'Accept' => 'application/json',
+        ])->post($this->getBaseUrl() . $path, $body);
+
+        $response = $send($accessToken);
+
+        if ($response->status() === 401) {
+            cache()->forget('oto_access_token');
+            $fresh = $this->getAccessTokenOTO();
+            if (!empty($fresh)) {
+                $response = $send($fresh);
+            }
+        }
+
+        return $response;
     }
 
     public function checkDeliveryFeeAndGetCheapest($accessToken, $originCity, $destinationCity, $width, $length, $height, $weight)
@@ -168,11 +195,7 @@ class OTOServiceUtils
         ];
 
         try {
-            $response = Http::timeout(15)->withHeaders([
-                'Authorization' => 'Bearer ' . $accessToken,
-                'Accept' => 'application/json',
-            ])
-                ->post($this->getBaseUrl() . '/checkOTODeliveryFee', $dataBody);
+            $response = $this->authorizedPost('/checkOTODeliveryFee', $dataBody, $accessToken);
 
             if ($response->ok()) {
                 $result = $response->json();
@@ -201,11 +224,7 @@ class OTOServiceUtils
     public function createOrder($orderData, $token)
     {
         try {
-            $response = Http::timeout(15)->withToken($token)
-                ->post($this->getBaseUrl() . '/createOrder', $orderData)
-                ->json();
-
-            return $response;
+            return $this->authorizedPost('/createOrder', $orderData, $token)->json();
         } catch (\Exception $e) {
             Log::error('OTO createOrder Exception: ' . $e->getMessage());
             return null;

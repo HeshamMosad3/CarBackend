@@ -1,6 +1,22 @@
+@php
+    use App\Enums\StatusShippingRequestEnum as ShippingStatus;
+
+    $status = $shippingRequest->status;
+    $isLegacy = $status->isLegacy();
+    // OTO's cheapest company: the original action source for legacy shipments, a price reference
+    // for the admin while a new-flow shipment is reviewed/quoted, and an optional booking once paid.
+    $showOto = $status === ShippingStatus::Pending
+        || in_array($status, [ShippingStatus::ReadyForReview, ShippingStatus::SearchingCarrier, ShippingStatus::Paid], true);
+    $canCreateOtoOrder = $status === ShippingStatus::Pending || $status === ShippingStatus::Paid;
+@endphp
+
+@if (!$isLegacy)
+    @include('dashboard.shipping-request-management.partails.workflow-section')
+@endif
+
 <div class="card card-primary card-outline mb-4 mt-1">
     <div class="card-header py-2">
-        <div class="card-title">أرخص شركة شحن</div>
+        <div class="card-title">أرخص شركة شحن{{ $isLegacy ? '' : ' (OTO - للاستئناس)' }}</div>
     </div>
     <div class="card-body">
         @if ($shippingRequest->oto_id)
@@ -9,9 +25,9 @@
             </div>
         @endif
 
-        @if (!($shippingRequest->status === \App\Enums\StatusShippingRequestEnum::Pending))
+        @if (!$showOto)
             <div class="alert alert-info">
-                {{ \App\Enums\StatusShippingRequestEnum::trans($shippingRequest->status->value) }}
+                {{ ShippingStatus::trans($status->value) }}
             </div>
         @elseif (!$shippingRequest->is_user_confirmed)
             <div class="alert alert-warning">
@@ -38,13 +54,17 @@
                     </tr>
                 </tbody>
             </table>
-            <form id="form-query-shipping" method="POST"
-                action="{{ route('dashboard.shipping-request-management.create-order-shipping') }}">
-                @csrf
-                <input type="hidden" name="shippingRequestId" value="{{ $shippingRequest->id }}">
-                <input type="hidden" name="deliveryOptionId" value="{{ $cheapestCompany['deliveryOptionId'] }}">
-                <button type="submit" class="btn btn-primary" id="btn-query-shipping">طلب الشحن</button>
-            </form>
+            @if ($canCreateOtoOrder && !$shippingRequest->oto_id)
+                <form id="form-query-shipping" method="POST"
+                    action="{{ route('dashboard.shipping-request-management.create-order-shipping') }}">
+                    @csrf
+                    <input type="hidden" name="shippingRequestId" value="{{ $shippingRequest->id }}">
+                    <input type="hidden" name="deliveryOptionId" value="{{ $cheapestCompany['deliveryOptionId'] }}">
+                    <button type="submit" class="btn btn-primary" id="btn-query-shipping">
+                        {{ $isLegacy ? 'طلب الشحن' : 'إنشاء الطلب لدى OTO (اختياري)' }}
+                    </button>
+                </form>
+            @endif
         @endif
 
     </div>

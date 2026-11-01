@@ -75,6 +75,8 @@
     @include('shared.show-alert-validation-error')
     <script>
         $(document).ready(function() {
+            var statusLabels = @json(collect(\App\Enums\StatusShippingRequestEnum::cases())->mapWithKeys(fn($case) => [$case->value => \App\Enums\StatusShippingRequestEnum::trans($case->value)]));
+
             var _columns = eval(
                 '[{"columns" : [{"data": "id", "className": "text-center align-middle"}, {"data": "request_id", "className": "text-center align-middle"}, {"data": "response_id", "className": "text-center align-middle"}, {"data": "city_origin_vendor", "className": "text-center align-middle"},{"data": "city_origin_dimensions", "className": "text-center align-middle"},{"data": "phone_origin_dimensions", "className": "text-center align-middle"},{"data": "fee_cheapest_shipping", "className": "text-center align-middle"}]}]'
             );
@@ -84,6 +86,10 @@
                 "orderable": false,
                 "className": "text-center",
                 "render": function(data, type, row, meta) {
+                    // New flow: the amount the admin quoted. Legacy shipments: OTO price + app fee.
+                    if (data.shipping_cost !== null && data.shipping_cost !== undefined) {
+                        return data.shipping_cost;
+                    }
                     return data.fee_cheapest_shipping + data.amount_rate_app;
                 }
             });
@@ -127,7 +133,21 @@
                         text +=
                             '<i class="fa-regular fa-circle-dot text-success me-1"></i><span class="mx-2">مكتمل</span></a>';
                     } else {
-                        return '';
+                        // New-flow shipments are managed from the details page, not from this dropdown.
+                        var label = statusLabels[data.status] || data.status;
+                        var color = (data.status == 'Canceled' || data.status == 'Unavailable') ? 'danger' :
+                            (data.status == 'Delivered' ? 'success' :
+                                (data.status == 'ReadyForReview' ? 'warning' : 'primary'));
+                        var badges = '<span class="badge bg-' + color + ' px-3 py-2">' + label + '</span>';
+
+                        if (data.payment_status == 'paid' && (data.status == 'Canceled' || data.status == 'Unavailable')) {
+                            badges += ' <span class="badge bg-danger px-2 py-2">يلزم رد المبلغ</span>';
+                        } else if (data.payment_status == 'paid') {
+                            badges += ' <span class="badge bg-success px-2 py-2">مدفوع</span>';
+                        } else if (data.payment_status == 'refunded') {
+                            badges += ' <span class="badge bg-secondary px-2 py-2">تم رد المبلغ</span>';
+                        }
+                        return badges;
                     }
 
                     text += '<ul class="dropdown-menu">' +

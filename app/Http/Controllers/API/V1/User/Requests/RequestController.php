@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\API\V1\User\Requests;
 
 use App\Enums\Notifications\NotificationCategoryEnum;
+use App\Enums\StatusShippingRequestEnum;
 use App\Exceptions\CustomResponseException;
+use App\Http\Services\Shared\ShippingWorkflowService;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\User\Request\{CheckEligibleVendorsRequest, ConfirmOrderRequest, ConfirmPriceShippingRequest, ConfirmShippingRequest};
 use App\Http\Services\User\Requests\RequestService;
@@ -22,7 +24,11 @@ class RequestController extends Controller
 {
     use NotificationsTrait;
 
-    public function __construct(protected RequestService $requestService, protected OTOServiceUtils $otoServiceUtils) {}
+    public function __construct(
+        protected RequestService $requestService,
+        protected OTOServiceUtils $otoServiceUtils,
+        protected ShippingWorkflowService $shippingWorkflow,
+    ) {}
 
     public function checkEligibleVendors(CheckEligibleVendorsRequest $request)
     {
@@ -58,10 +64,17 @@ class RequestController extends Controller
     {
         set_time_limit(60);
         try {
-            $shippingRequest = ShippingRequest::where('request_id', $request->requestId)->where('response_id', $request->responseId)->latest()->first();
+            $shippingRequest = ShippingRequest::findOpenFor((int) $request->requestId, (int) $request->responseId)
+                ?? ShippingRequest::where('request_id', $request->requestId)->where('response_id', $request->responseId)->latest()->first();
 
-            if (!$shippingRequest) {
+            if (!$shippingRequest || !$this->ownsRequest((int) $request->requestId)) {
                 return buildApiResponseHelper(false, 'لا يوجد شحنة لهذا الطلب');
+            }
+
+            // New shipments are quoted by hand by the admin, so there is no price to fetch here.
+            // Shipments created before that flow keep the original OTO price-check path below.
+            if (!$shippingRequest->status->isLegacy()) {
+                return $this->submitCustomerShippingData($request, $shippingRequest);
             }
 
             $originCity = OTOServiceUtils::sanitizeCity($shippingRequest->city_origin_vendor);
@@ -148,8 +161,50 @@ class RequestController extends Controller
         }
     }
 
+    private function ownsRequest(int $requestId): bool
+    {
+        return DB::table('request_customers')->where('id', $requestId)->where('user_id', getCurrUserIdHelper())->exists();
+    }
+
+    private function submitCustomerShippingData(ConfirmShippingRequest $request, ShippingRequest $shippingRequest)
+    {
+        if (!in_array($shippingRequest->status, [StatusShippingRequestEnum::AwaitingCustomerApproval, StatusShippingRequestEnum::AwaitingCustomerData], true)) {
+            return buildApiResponseHelper(false, 'لا يمكن تعديل بيانات هذا الشحن في حالته الحالية');
+        }
+
+        $this->shippingWorkflow->transition($shippingRequest, StatusShippingRequestEnum::ReadyForReview, [
+            'id_number_user' => $request->idNumberUser,
+            // Stored in the English form OTO expects, same as the original flow.
+            'city_origin_dimensions' => OTOServiceUtils::sanitizeCity($request->cityOriginDimensions),
+            'address_origin_dimensions' => $request->addressOriginDimensions,
+            'phone_origin_dimensions' => $request->phoneOriginDimensions,
+            'name_destination' => $request->nameDestination,
+            'lat_destination' => $request->latDestination,
+            'lng_destination' => $request->lngDestination,
+            'is_user_confirmed' => true,
+        ]);
+
+        \App\Jobs\SendNewShippingRequestNotificationJob::dispatch($shippingRequest->id);
+
+        return buildApiResponseHelper(true, 'تم استلام بيانات الشحن وسيتم إشعارك بتكلفة الشحن بعد المراجعة', [
+            'shippingRequestId' => $shippingRequest->id,
+            'flow' => 'manual_quote',
+        ]);
+    }
+
     public function confirmPriceShippingRequest(ConfirmPriceShippingRequest $request)
     {
+        $shippingRequest = ShippingRequest::find($request->id);
+        if (!$shippingRequest || !$this->ownsRequest((int) $shippingRequest->request_id)) {
+            return buildApiResponseHelper(false, 'حدث خطاء في تاكيد الشحنة ... الرجاء المحاولة مرة اخرى');
+        }
+
+        // Older app builds still call this after confirm-shipping-request. On the new flow the data
+        // was already submitted there, so acknowledge without notifying the admin a second time.
+        if (!$shippingRequest->status->isLegacy()) {
+            return buildApiResponseHelper(true, 'تم تاكيد الشحنة بنجاح');
+        }
+
         $updated = ShippingRequest::where('id', $request->id)->update([
             'is_user_confirmed' => true
         ]);

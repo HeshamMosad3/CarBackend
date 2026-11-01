@@ -2,6 +2,7 @@
 
 namespace App\Http\Services\Shared;
 
+use App\Enums\StatusShippingRequestEnum;
 use Illuminate\Http\Request;
 
 class ShippingService
@@ -25,6 +26,8 @@ class ShippingService
             'height' => $height,
             'weight' => $weight,
             'packages' => $packages,
+            // New shipments start in the manual-quote flow (see ShippingWorkflowService).
+            'status' => StatusShippingRequestEnum::AwaitingCustomerApproval,
         ]);
     }
 }

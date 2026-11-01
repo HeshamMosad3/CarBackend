@@ -179,6 +179,9 @@ Route::prefix('/dashboard')->middleware(['auth:admin', 'role:Super-Admin|admin',
         Route::get('/show/{id}', 'show')->name('dashboard.shipping-request-management.show');
         Route::post('/update-status', 'updateStatus')->name('dashboard.shipping-request-management.update-status');
         Route::post('/create-order-shipping', 'createOrderShippingRequest')->name('dashboard.shipping-request-management.create-order-shipping');
+        Route::post('/transition/{id}', 'transition')->name('dashboard.shipping-request-management.transition');
+        Route::post('/refund/{id}', 'refund')->name('dashboard.shipping-request-management.refund');
+        Route::post('/notes/{id}', 'saveNotes')->name('dashboard.shipping-request-management.notes');
         Route::delete('/delete/{id}', 'delete')->name('dashboard.shipping-request-management.delete');
     });
     Route::prefix('/complaint-management')->controller(App\Http\Controllers\Dashboard\ComplaintManagement\ComplaintManagemntController::class)->group(function () {

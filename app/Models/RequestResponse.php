@@ -80,8 +80,14 @@ class RequestResponse extends Model
     public function scopeLeftJoinShippingRequest($query)
     {
         return $query->leftJoin('shipping_requests', function ($join) {
+            // Only the latest shipment per response, so a canceled shipment followed by a new one
+            // doesn't make the response show up twice.
             $join->on('request_responses.request_id', '=', 'shipping_requests.request_id')
-                ->on('request_responses.id', '=', 'shipping_requests.response_id');
+                ->on('request_responses.id', '=', 'shipping_requests.response_id')
+                ->whereRaw('shipping_requests.id = (select max(sr_latest.id) from shipping_requests sr_latest
+                    where sr_latest.request_id = request_responses.request_id
+                    and sr_latest.response_id = request_responses.id
+                    and sr_latest.deleted_at is null)');
         });
     }
 

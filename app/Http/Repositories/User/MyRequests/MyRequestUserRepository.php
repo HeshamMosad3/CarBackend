@@ -160,7 +160,14 @@ class MyRequestUserRepository
                 'vendors.company_name_ar',
                 'users.logo as vendor_logo',
                 'shipping_requests.id as shipping_request_id',
-                'shipping_requests.status as shipping_request_status',
+                // Installed app builds only know Pending/InProgress/Completed, so the new statuses are
+                // folded into those for the old field. `shipping_status` carries the real one.
+                \Illuminate\Support\Facades\DB::raw("CASE
+                    WHEN shipping_requests.status IN ('AwaitingCustomerApproval','AwaitingCustomerData','ReadyForReview','SearchingCarrier','AwaitingPayment','Paid','Unavailable','Canceled') THEN 'Pending'
+                    WHEN shipping_requests.status IN ('BookingConfirmed','PickedUp','InTransit') THEN 'InProgress'
+                    WHEN shipping_requests.status = 'Delivered' THEN 'Completed'
+                    ELSE shipping_requests.status END as shipping_request_status"),
+                'shipping_requests.status as shipping_status',
                 \Illuminate\Support\Facades\DB::raw("(SELECT COUNT(message_conversations.id) FROM message_conversations INNER JOIN conversations ON conversations.id = message_conversations.conversation_id WHERE conversations.response_id = request_responses.id AND message_conversations.read = 0 AND message_conversations.sender_id != " . getCurrUserIdHelper() . ") as unread_messages_count"),
                 \Illuminate\Support\Facades\DB::raw("COALESCE((SELECT MAX(message_conversations.created_at) FROM message_conversations INNER JOIN conversations ON conversations.id = message_conversations.conversation_id WHERE conversations.response_id = request_responses.id), request_responses.created_at) as last_activity")
             )

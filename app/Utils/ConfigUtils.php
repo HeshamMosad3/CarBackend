@@ -19,4 +19,16 @@ class ConfigUtils
     {
         return 10;
     }
+
+    /** Days a customer has to pay the shipping cost before the request is canceled automatically. */
+    public static function getShippingPaymentWindowDays(): int
+    {
+        return 3;
+    }
+
+    /** Hours after the cost is sent at which the customer gets a single payment reminder. */
+    public static function getShippingPaymentReminderAfterHours(): int
+    {
+        return 24;
+    }
 }

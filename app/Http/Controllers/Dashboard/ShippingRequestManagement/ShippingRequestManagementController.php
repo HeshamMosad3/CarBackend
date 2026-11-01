@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Dashboard\ShippingRequestManagement;
 
 use App\Enums\StatusShippingRequestEnum;
+use App\Exceptions\CustomResponseException;
 use App\Http\Controllers\Controller;
 use App\Http\Services\Dashboard\ShippingRequestManagement\ShippingRequestManagementService;
+use App\Http\Services\Shared\ShippingWorkflowService;
 use App\Models\ShippingRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -12,7 +14,10 @@ use Illuminate\Validation\Rule;
 
 class ShippingRequestManagementController extends Controller
 {
-    public function __construct(protected ShippingRequestManagementService $service) {}
+    public function __construct(
+        protected ShippingRequestManagementService $service,
+        protected ShippingWorkflowService $workflow,
+    ) {}
 
     public function index(Request $request)
     {
@@ -34,6 +39,14 @@ class ShippingRequestManagementController extends Controller
         }
 
         $shippingRequest = ShippingRequest::find($request->id);
+
+        // This dropdown only drives the legacy three-step lifecycle. Shipments on the new flow
+        // change status through ShippingWorkflowService, which enforces the allowed transitions.
+        $requested = StatusShippingRequestEnum::from($request->status);
+        if (!$requested->isLegacy() || !$shippingRequest->status->isLegacy()) {
+            return buildApiResponseHelper(false, 'لا يمكن تعديل حالة هذا الشحن من هنا');
+        }
+
         $shippingRequest->status = $request->status;
 
         if (! $shippingRequest->save())
@@ -58,13 +71,96 @@ class ShippingRequestManagementController extends Controller
         $result = $this->service->show($id);
         $shippingRequest = $result['shippingRequest'] ?? null;
         $cheapestCompany = $result['cheapestCompany'] ?? null;
+        $parties = $result['parties'] ?? null;
+        $needsRefund = $shippingRequest ? $this->workflow->needsRefund($shippingRequest) : false;
 
-        return view('dashboard.shipping-request-management.show', compact('shippingRequest', 'cheapestCompany'));
+        return view('dashboard.shipping-request-management.show', compact('shippingRequest', 'cheapestCompany', 'parties', 'needsRefund'));
+    }
+
+    /** Moves a new-flow shipment to its next status. The rules live in ShippingWorkflowService. */
+    public function transition(Request $request, $id)
+    {
+        $targets = [
+            StatusShippingRequestEnum::SearchingCarrier,
+            StatusShippingRequestEnum::AwaitingPayment,
+            StatusShippingRequestEnum::BookingConfirmed,
+            StatusShippingRequestEnum::PickedUp,
+            StatusShippingRequestEnum::InTransit,
+            StatusShippingRequestEnum::Delivered,
+            StatusShippingRequestEnum::Unavailable,
+            StatusShippingRequestEnum::Canceled,
+        ];
+
+        $validator = Validator::make($request->all(), [
+            'to' => ['required', Rule::in(array_map(fn ($s) => $s->value, $targets))],
+            'shipping_cost' => ['nullable', 'numeric', 'gt:0', 'max:1000000'],
+            'carrier_name' => ['nullable', 'string', 'max:255'],
+            'tracking_number' => ['nullable', 'string', 'max:255'],
+            'pickup_details' => ['nullable', 'string', 'max:2000'],
+            'cancel_reason' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        if ($validator->fails()) {
+            return back()->with('error', $validator->errors()->first());
+        }
+
+        $shippingRequest = ShippingRequest::findOrFail($id);
+        $to = StatusShippingRequestEnum::from($request->input('to'));
+
+        // Only the columns that belong to the chosen step are accepted.
+        $allowed = match ($to) {
+            StatusShippingRequestEnum::AwaitingPayment => ['shipping_cost'],
+            StatusShippingRequestEnum::BookingConfirmed => ['carrier_name', 'tracking_number', 'pickup_details'],
+            StatusShippingRequestEnum::Unavailable, StatusShippingRequestEnum::Canceled => ['cancel_reason'],
+            default => [],
+        };
+        $attributes = array_filter($request->only($allowed), fn ($v) => $v !== null && $v !== '');
+
+        try {
+            $this->workflow->transition($shippingRequest, $to, $attributes);
+        } catch (CustomResponseException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', StatusShippingRequestEnum::trans($to->value));
+    }
+
+    public function refund(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), ['refund_note' => ['nullable', 'string', 'max:255']]);
+        if ($validator->fails()) {
+            return back()->with('error', $validator->errors()->first());
+        }
+
+        try {
+            $this->workflow->markRefunded(ShippingRequest::findOrFail($id), $request->input('refund_note'));
+        } catch (CustomResponseException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'تم تسجيل رد المبلغ');
+    }
+
+    public function saveNotes(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), ['admin_notes' => ['nullable', 'string', 'max:5000']]);
+        if ($validator->fails()) {
+            return back()->with('error', $validator->errors()->first());
+        }
+
+        ShippingRequest::findOrFail($id)->update(['admin_notes' => $request->input('admin_notes')]);
+
+        return back()->with('success', 'تم حفظ الملاحظات');
     }
 
     public function createOrderShippingRequest(Request $request)
     {
-        $this->service->createOrderShippingRequest($request);
+        try {
+            $this->service->createOrderShippingRequest($request);
+        } catch (CustomResponseException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
         return redirect()->route('dashboard.shipping-request-management.index')->with('success', 'تم إنشاء طلب الشحن بنجاح');
     }
 

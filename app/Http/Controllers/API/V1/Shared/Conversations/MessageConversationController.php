@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Services\Shared\ShippingService;
 use App\Models\Conversation;
 use App\Models\MessageConversation;
+use App\Models\ShippingRequest;
+use App\Models\Vendor;
 use App\Traits\NotificationsTrait;
 use App\Utils\UploadUtils;
 use Illuminate\Http\Request;
@@ -64,6 +66,20 @@ class MessageConversationController extends Controller
             return buildApiResponseHelper(false, 'لا يمكن إرسال رسالة لأن الطلب ملغي');
         }
 
+        if ($request->boolean('isSendShippingRequest') && $conversation) {
+            if ((int) $userId === (int) $conversation->user_id) {
+                return buildApiResponseHelper(false, 'طلب الشحن يرسله التاجر فقط');
+            }
+            if ((int) $conversation->request_id !== (int) $request->requestId
+                || ($conversation->response_id && (int) $conversation->response_id !== (int) $request->responseId)) {
+                return buildApiResponseHelper(false, 'بيانات طلب الشحن لا تطابق المحادثة');
+            }
+            // One open shipment per response: the unique active_key backs this up at the database level.
+            if (ShippingRequest::findOpenFor((int) $request->requestId, (int) $request->responseId)) {
+                return buildApiResponseHelper(false, 'يوجد طلب شحن قائم لهذا الرد بالفعل');
+            }
+        }
+
         $fileName = UploadUtils::uploadImageToStorage($request->image);
 
         $created = MessageConversation::create([
@@ -93,8 +109,17 @@ class MessageConversationController extends Controller
                     width: $shippingInfo['width'],
                     height: $shippingInfo['height'] ?? null,
                     weight: $shippingInfo['weight'] ?? null,
-                    packages: isset($shippingInfo['packages']) ? json_encode($shippingInfo['packages']) : null
+                    packages: $shippingInfo['packages'] ?? null
                 );
+
+                // Remember the pickup point so the vendor's next shipment can be pre-filled from the system.
+                Vendor::where('user_id', $userId)->update([
+                    'store_name' => $shippingInfo['name'] ?? null,
+                    'store_city' => $shippingInfo['city_ar'] ?? ($shippingInfo['city'] ?? null),
+                    'store_address' => $shippingInfo['address'] ?? null,
+                    'store_lat' => isset($shippingInfo['lat']) ? (float) $shippingInfo['lat'] : null,
+                    'store_lng' => isset($shippingInfo['lng']) ? (float) $shippingInfo['lng'] : null,
+                ]);
                 $messagesNotify =  'طلب شحن جديد من الطلب رقم' . ' ( ' . $request->requestId . ' )';
             }
 
