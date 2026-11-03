@@ -19,7 +19,7 @@ class RequestManagementController extends Controller
         if ($request->ajax()) {
             return $this->service->index($request);
         }
-        return view('dashboard.requests-management.index');
+        return view('dashboard.requests-management.index', ['statusCounts' => $this->service->statusCounts()]);
     }
 
     public function show($id)
@@ -70,7 +70,7 @@ class RequestManagementController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $requestCustomer = RequestCustomer::find($request->id);
+        $requestCustomer = RequestCustomer::find($id);
 
         return $requestCustomer->delete()
             ? buildApiResponseHelper(true, 'تم حذف الطلب بنجاح')

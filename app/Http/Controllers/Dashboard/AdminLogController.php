@@ -13,13 +13,11 @@ class AdminLogController extends Controller
     {
         $path = storage_path('logs/laravel.log');
 
-        if (!File::exists($path)) {
-            return back()->with('error', 'لا يوجد سجلات');
-        }
+        $exists = File::exists($path);
+        $logs = $exists ? collect(file($path))->take(-1000)->implode('') : '';
+        $size = $exists ? File::size($path) : 0;
 
-        $logs = collect(file($path))->take(-1000)->implode('');
-
-        return view('dashboard.admin-logs.index', compact('logs'));
+        return view('dashboard.admin-logs.index', compact('logs', 'size', 'exists'));
     }
 
     public function clearLogs()

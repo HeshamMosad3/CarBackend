@@ -20,6 +20,7 @@ class VendorManagementRepository
             ->role(UserRoleEnum::Vendor->value)
             ->searchValueFilter($searchValue)
             ->where('users.status', '!=', StatusUserEnum::Pending->value)
+            ->when($this->statusFilter($request), fn ($q, $status) => $q->where('users.status', $status))
             ->select(
                 'users.id',
                 'vendors.company_name_ar',
@@ -39,11 +40,20 @@ class VendorManagementRepository
             ->count();
     }
 
-    public function recordsCountVendorsWithFilter($searchValue)
+    public function recordsCountVendorsWithFilter($searchValue, ?Request $request = null)
     {
         return $this->queryRecordsCountVendors()
             ->searchValueFilter($searchValue)
+            ->when($request ? $this->statusFilter($request) : null, fn ($q, $status) => $q->where('status', $status))
             ->count();
+    }
+
+    /** Optional ?status= filter from the vendors list; ignores anything that isn't a real status. */
+    private function statusFilter(Request $request): ?string
+    {
+        $status = StatusUserEnum::tryFrom((string) $request->input('status'));
+
+        return $status && $status !== StatusUserEnum::Pending ? $status->value : null;
     }
 
     private function queryRecordsCountVendors()
@@ -63,8 +73,9 @@ class VendorManagementRepository
                 'users.phone',
                 'users.logo',
                 'users.created_at as member_since',
-                'vendors.id as vendor_id',
                 'vendors.*',
+                'vendors.id as vendor_id',
+                'users.status as account_status',
             )
             ->first();
     }
@@ -79,8 +90,9 @@ class VendorManagementRepository
                 'users.phone',
                 'users.logo',
                 'users.created_at as member_since',
-                'vendors.id as vendor_id',
                 'vendors.*',
+                'vendors.id as vendor_id',
+                'users.status as account_status',
             )
             ->first();
     }

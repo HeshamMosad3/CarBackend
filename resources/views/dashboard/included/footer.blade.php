@@ -1,9 +1,4 @@
-<footer class="app-footer">
-    <div class="text-center">
-        جميع الحقوق محفوظة
-        <strong>
-            <a href="#" class="text-decoration-none">وسيط سيارات</a>.
-            Copyright &copy; {{ \Carbon\Carbon::now()->year }}&nbsp;
-        </strong>
-    </div>
+<footer class="app-footer d-flex justify-content-between flex-wrap gap-2">
+    <span>© {{ now()->year }} {{ config('app.name') }} — جميع الحقوق محفوظة</span>
+    <span class="ltr">{{ now()->timezone(config('app.user_timezone', config('app.timezone')))->format('Y-m-d H:i') }}</span>
 </footer>

@@ -17,7 +17,7 @@ class RequestsManagementService extends BaseService
         $searchValue = $request->input('search.value');
 
         $recordsCount =  $this->repo->getTotalRecordsCount(RequestCustomer::class);
-        $recordsCountwithFilter = $this->repo->recordsCountRequestsCustomerWithFilter($searchValue);
+        $recordsCountwithFilter = $this->repo->recordsCountRequestsCustomerWithFilter($searchValue, $request);
         $records = $this->repo->index($request, $searchValue);
 
         return $this->repo->formatResponseDataTables(
@@ -26,6 +26,11 @@ class RequestsManagementService extends BaseService
             recordsCountwithFilter: $recordsCountwithFilter,
             records: $records
         );
+    }
+
+    public function statusCounts(): array
+    {
+        return $this->repo->statusCounts();
     }
 
     public function show($id)
@@ -42,6 +47,8 @@ class RequestsManagementService extends BaseService
         $result['cities'] = $this->repo->getRequestCitiesNamesScope($result->cities);
         $result['requestImages'] = $this->repo->getRequestImages($id);
         $result['customFields'] = $this->repo->getRequestCustomFields($id);
+        $result['responses'] = $this->repo->getRequestResponses($id);
+        $result['shipments'] = $this->repo->getRequestShipments($id);
 
         return $result;
     }

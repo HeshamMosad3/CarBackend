@@ -179,9 +179,29 @@ class ShippingWorkflowService
         // Notify only after the transaction committed, and never let a push failure undo the change.
         if ($changed) {
             $this->notifyStatusChange($changed);
+            $this->broadcastStatusChange($changed);
         }
 
         return $result;
+    }
+
+    /** Live update for the apps; a failure here must never undo or fail the status change. */
+    private function broadcastStatusChange(ShippingRequest $sr): void
+    {
+        try {
+            $customerId = DB::table('request_customers')->where('id', $sr->request_id)->value('user_id');
+            $vendorUserId = DB::table('request_responses')
+                ->join('vendors', 'vendors.id', '=', 'request_responses.vendor_id')
+                ->where('request_responses.id', $sr->response_id)
+                ->value('vendors.user_id');
+
+            $userIds = array_values(array_unique(array_filter([(int) $customerId, (int) $vendorUserId])));
+            if ($userIds) {
+                event(new \App\Events\ShippingStatusChanged($userIds, $sr->id, (int) $sr->request_id, (int) $sr->response_id, $sr->status->value));
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
     }
 
     /** Preconditions and derived columns for specific target statuses. */

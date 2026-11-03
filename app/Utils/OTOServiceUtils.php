@@ -170,6 +170,16 @@ class OTOServiceUtils
 
     public function checkDeliveryFeeAndGetCheapest($accessToken, $originCity, $destinationCity, $width, $length, $height, $weight)
     {
+        $companies = $this->checkDeliveryFeeAndGetCompanies($accessToken, $originCity, $destinationCity, $width, $length, $height, $weight);
+        return $companies[0] ?? null;
+    }
+
+    /**
+     * Every delivery option OTO offers for this shipment, cheapest first. Returns an empty array
+     * when OTO has nothing (or the call fails).
+     */
+    public function checkDeliveryFeeAndGetCompanies($accessToken, $originCity, $destinationCity, $width, $length, $height, $weight): array
+    {
         $w = (float) ($width ?: 10);
         $l = (float) ($length ?: 10);
         $h = (float) ($height ?: 10);
@@ -201,23 +211,22 @@ class OTOServiceUtils
                 $result = $response->json();
                 if (isset($result['success']) && $result['success'] == false) {
                     Log::warning('OTO checkDeliveryFee Warning: ', $result);
-                    return null;
+                    return [];
                 }
 
                 $companies = $result['deliveryCompany'] ?? [];
-                if (empty($companies)) {
-                    return null;
+                if (empty($companies) || !is_array($companies)) {
+                    return [];
                 }
 
-                $cheapest = collect($companies)->sortBy('price')->first();
-                return $cheapest;
+                return collect($companies)->sortBy(fn ($c) => (float) ($c['price'] ?? PHP_INT_MAX))->values()->all();
             }
 
             Log::error('OTO checkDeliveryFee Error: ' . $response->status() . ' - ' . $response->body());
-            return null;
+            return [];
         } catch (\Exception $e) {
             Log::error('OTO checkDeliveryFee Exception: ' . $e->getMessage());
-            return null;
+            return [];
         }
     }
 

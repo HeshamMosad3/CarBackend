@@ -53,7 +53,10 @@ Route::middleware('auth')->group(function () {
     Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
 
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
-
-    Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
-        ->name('logout');
 });
+
+// Admins sign in on the "admin" guard, so logout must check that guard (the default "auth"
+// middleware checks "web" and bounced admins back to the login page without logging them out).
+Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
+    ->middleware('auth:admin')
+    ->name('logout');

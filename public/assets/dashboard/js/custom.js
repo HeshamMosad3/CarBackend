@@ -1,403 +1,429 @@
-function showAlertDangerTopValidationError(err) {
-    // for show error validation
-    let response = err.responseJSON;
-    $('.alert-danger-top #top-message').find("ul").empty();
-    $.each(response, function (key, error) {
-        for (let i = 0; i < error.length; i++) {
-            $('.alert-danger-top #top-message').find("ul").append('<li>' + error[i] + '</li>');
-        }
-    });
-    $('.alert-danger-top #top-message').css('display', 'block');
-}
-function spinnerBorderLight() {
-    return '<span class="spinner-border spinner-border-sm text-light" role="status" aria-hidden="true"></span> الرجاء الإنتظار ...'
-}
-function mySummernoteSelector({ selector = '.summernote', placeholder, height = 300 } = {}) {
-    $(selector).summernote({
-        placeholder: placeholder,
-        height: height,
+/* ==========================================================================
+   Admin dashboard helpers. Requires jQuery, Bootstrap 5, SweetAlert2 and DataTables 2.
+   Pages mostly declare behaviour with data-attributes; see the delegated handlers at the end.
+   ========================================================================== */
 
-    });
-}
+(function () {
+    'use strict';
 
-function previewSelectedImage(event, elementId) {
-    const selectedImage = document.getElementById(elementId);
-    const fileInput = event.target;
-    if (fileInput.files && fileInput.files[0]) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-            selectedImage.src = e.target.result;
-        };
-        reader.readAsDataURL(fileInput.files[0]);
+    const csrf = () => document.querySelector('meta[name="csrf-token"]')?.content;
+
+    // ---------- Escaping & formatting ----------
+    function esc(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
-}
 
-//------------------------ ajax ----------------------------
-function getDataAjax({ url, beforeSend, complete, success } = {}) {
-    $.ajax({
-        type: 'GET',
-        url: url,
-        dataType: "json",
-        beforeSend: beforeSend,
-        complete: complete,
-        success: success,
-        error: function (err) {
-            $('#loadingModalId').modal('hide');
-            if (err.status == 422) {
-                showAlertDangerTopValidationError(err);
-            }
-        }
-    });
-}
-function postDataAjax({ url, formData,
-    beforeSend = function () { $('#btnSave').addClass("disabled").html(spinnerBorderLight()).attr('disabled', true); },
-    complete = function () { $('#btnSave').removeClass("disabled").html("حفظ").attr('disabled', false); },
-    success, contentType = false, processData = false } = {}) {
-    $.ajax({
-        type: 'POST',
-        data: formData,
-        dataType: 'JSON',
-        contentType: contentType,
-        processData: processData,
-        url: url,
-        beforeSend: beforeSend,
-        complete: complete,
-        success: success,
-        error: function (err) {
-            $('#loadingModalId').modal('hide');
-            if (err.status == 422) {
-                showAlertDangerTopValidationError(err);
-            }
-        }
-    })
-}
+    function orDash(value) {
+        return value === null || value === undefined || value === '' ? '<span class="text-muted">—</span>' : esc(value);
+    }
 
-function ajax_setup() {
-    $.ajaxSetup({
-        headers: {
-            'X-CSRF-TOKEN': jQuery('meta[name="csrf-token"]').attr('content')
-        }
-    });
-}
+    function money(value) {
+        if (value === null || value === undefined || value === '') return '<span class="text-muted">—</span>';
+        const n = Number(value);
+        if (Number.isNaN(n)) return esc(value);
+        return '<span class="num">' + n.toLocaleString('en-US', { maximumFractionDigits: 2 }) + '</span> <span class="text-muted small">ر.س</span>';
+    }
 
-function deleteDataAjax({ url,
-    beforeSend = function () { },
-    complete = function () { },
-    success } = {}) {
-    ajax_setup();
-    $.ajax({
-        type: 'DELETE',
-        dataType: 'JSON',
-        url: url,
-        beforeSend: beforeSend,
-        complete: complete,
-        success: success,
-        error: function (err) {
-            if (err.status == 422) {
-                showAlertDangerTopValidationError(err);
-            }
+    /** "2026-11-03 14:20" from an ISO string or an already formatted date. */
+    function fmtDate(value, withTime) {
+        if (!value) return '<span class="text-muted">—</span>';
+        const d = new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(d.getTime())) return esc(value);
+        const pad = function (n) { return String(n).padStart(2, '0'); };
+        let out = d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+        if (withTime !== false) out += ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+        return '<span class="ltr num">' + out + '</span>';
+    }
+
+    function initials(name) {
+        const parts = String(name || '؟').trim().split(/\s+/);
+        return esc((parts[0] || '').charAt(0) + (parts[1] ? parts[1].charAt(0) : ''));
+    }
+
+    function avatar(name, imageUrl, size) {
+        const cls = 'avatar' + (size ? ' avatar-' + size : '');
+        if (imageUrl) {
+            return '<span class="' + cls + '"><img src="' + esc(imageUrl) + '" alt="" loading="lazy" onerror="this.parentNode.textContent=\'' + initials(name) + '\'"></span>';
         }
-    })
-}
-function deleteButtonActionDatatable({ selector } = {}) {
-    $(document).on('click', selector, function (e) {
-        e.preventDefault();
-        var dataDelete = $(this).data('id');
-        var myUrl = $(this).data('action');
-        swalAlertDeleteConfirm({
-            isConfirmed: function () {
-                deleteDataAjax({
-                    url: myUrl,
-                    success: function (res) {
-                        if (res.success) {
-                            $('#datatableID').DataTable().rows().every(
-                                function (rowIdx, tableLoop, rowLoop) {
-                                    if (this.data().id == dataDelete) {
-                                        $('#datatableID').DataTable().row(rowIdx).remove().draw();
-                                    }
-                                });
-                        } else {
-                            swalToast({ title: res.message, icon: 'error' });
-                        }
-                    }
-                });
-            }
+        return '<span class="' + cls + '">' + initials(name) + '</span>';
+    }
+
+    function uploadUrl(path) {
+        return path ? baseUrl + 'uploads/' + String(path).replace(/^\/+/, '') : null;
+    }
+
+    // ---------- Statuses (map comes from App\Support\Dashboard\StatusPresenter) ----------
+    function statusInfo(type, value) {
+        const map = (window.DASH_STATUS || {})[type] || {};
+        return map[value] || [value || '—', 'secondary'];
+    }
+
+    function statusPill(type, value, extraClass) {
+        const [label, tone] = statusInfo(type, value);
+        return '<span class="status-pill tone-' + tone + (extraClass ? ' ' + extraClass : '') + '">' + esc(label) + '</span>';
+    }
+
+    /**
+     * A status pill that opens a menu of the other statuses.
+     * options: { url, id, values: [...], confirm: {value: 'question'} }
+     */
+    function statusMenu(type, value, options) {
+        const [label, tone] = statusInfo(type, value);
+        let html = '<div class="dropdown d-inline-block">' +
+            '<button type="button" class="status-pill tone-' + tone + '" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false">' + esc(label) + '</button>' +
+            '<ul class="dropdown-menu">' +
+            '<li><h6 class="dropdown-header">تغيير الحالة</h6></li>';
+        options.values.forEach(function (v) {
+            const [l, t] = statusInfo(type, v);
+            const confirmText = options.confirm && options.confirm[v] ? ' data-confirm="' + esc(options.confirm[v]) + '"' : '';
+            html += '<li><a class="dropdown-item' + (v === value ? ' active' : '') + '" href="#" data-status-url="' + esc(options.url) +
+                '" data-id="' + esc(options.id) + '" data-status="' + esc(v) + '"' + confirmText + '>' +
+                '<span class="status-pill tone-' + t + ' no-dot" style="padding:.1rem .5rem">●</span>' + esc(l) + '</a></li>';
         });
-    });
-}
-function select2Modal({ selector, dropdownParentSelector = null, url, allowClear = false } = {}) {
-    $(selector).select2({
-        dropdownParent: dropdownParentSelector != null ? $(dropdownParentSelector) : null,
-        allowClear: allowClear,
-        ajax: {
-            url: baseUrl + url,
-            dataType: 'json',
-            language: "ar",
-            delay: 250,
-            data: function (params) {
-                return {
-                    term: params.term || '',
-                    page: params.page || 1
+        return html + '</ul></div>';
+    }
+
+    // ---------- Feedback ----------
+    function toast(title, icon) {
+        if (!title) return;
+        Swal.mixin({
+            toast: true,
+            position: 'top-start',
+            showConfirmButton: false,
+            timer: 4000,
+            timerProgressBar: true,
+            didOpen: function (t) { t.onmouseenter = Swal.stopTimer; t.onmouseleave = Swal.resumeTimer; }
+        }).fire({ icon: icon || 'success', title: title });
+    }
+
+    function showErrors(errors, title) {
+        let list = [];
+        if (Array.isArray(errors)) list = errors;
+        else if (errors && typeof errors === 'object') {
+            Object.values(errors).forEach(function (v) { list = list.concat(Array.isArray(v) ? v : [v]); });
+        } else if (errors) list = [errors];
+
+        Swal.fire({
+            icon: 'error',
+            title: title || 'تعذّر إتمام العملية',
+            html: list.length ? '<ul class="text-start mb-0" style="padding-inline-start:1.2rem">' + list.map(function (e) { return '<li>' + esc(e) + '</li>'; }).join('') + '</ul>' : '',
+            confirmButtonText: 'حسناً'
+        });
+    }
+
+    function confirmAction(opts) {
+        opts = opts || {};
+        return Swal.fire({
+            title: opts.title || 'هل أنت متأكد؟',
+            text: opts.text || '',
+            icon: opts.danger ? 'warning' : 'question',
+            showCancelButton: true,
+            confirmButtonText: opts.confirmText || 'تأكيد',
+            cancelButtonText: 'إلغاء',
+            reverseButtons: false,
+            focusCancel: !!opts.danger,
+            customClass: { confirmButton: opts.danger ? 'is-danger' : '' },
+            input: opts.input || undefined,
+            inputPlaceholder: opts.inputPlaceholder || undefined,
+            inputValidator: opts.inputRequired ? function (v) { return !v ? 'هذا الحقل مطلوب' : undefined; } : undefined
+        }).then(function (r) { return r.isConfirmed ? (opts.input ? r.value : true) : false; });
+    }
+
+    let busyEl = null;
+    function busy(on, text) {
+        if (!busyEl) {
+            busyEl = document.createElement('div');
+            busyEl.className = 'busy-overlay';
+            busyEl.innerHTML = '<div class="busy-box"><span class="spinner-border spinner-border-sm text-primary"></span><span class="busy-text"></span></div>';
+            document.body.appendChild(busyEl);
+        }
+        busyEl.querySelector('.busy-text').textContent = text || 'جارٍ المعالجة...';
+        busyEl.classList.toggle('show', !!on);
+    }
+
+    // ---------- Ajax ----------
+    function request(method, url, data) {
+        return new Promise(function (resolve, reject) {
+            const isForm = data instanceof FormData;
+            $.ajax({
+                url: url,
+                type: method,
+                data: data,
+                dataType: 'json',
+                processData: !isForm,
+                contentType: isForm ? false : 'application/x-www-form-urlencoded; charset=UTF-8',
+                headers: { 'X-CSRF-TOKEN': csrf(), 'Accept': 'application/json' }
+            }).done(function (res) {
+                if (res && res.success === false) {
+                    toast(res.message || 'تعذّر إتمام العملية', 'error');
+                    reject(res);
+                    return;
+                }
+                if (res && res.message) toast(res.message);
+                resolve(res);
+            }).fail(function (xhr) {
+                const body = xhr.responseJSON || {};
+                if (xhr.status === 422) showErrors(body.errors || body);
+                else if (xhr.status === 419) showErrors(['انتهت صلاحية الجلسة، حدّث الصفحة وحاول مجدداً']);
+                else toast(body.message || 'حدث خطأ غير متوقع (' + xhr.status + ')', 'error');
+                reject(xhr);
+            });
+        });
+    }
+
+    // ---------- DataTables ----------
+    const dtLanguage = {
+        processing: 'جارٍ التحميل...',
+        search: '',
+        searchPlaceholder: 'بحث...',
+        lengthMenu: '_MENU_ لكل صفحة',
+        info: 'عرض _START_–_END_ من أصل _TOTAL_',
+        infoEmpty: 'لا توجد سجلات',
+        infoFiltered: '(من أصل _MAX_)',
+        zeroRecords: 'لا توجد نتائج مطابقة',
+        emptyTable: 'لا توجد بيانات بعد',
+        loadingRecords: 'جارٍ التحميل...',
+        paginate: { first: '«', last: '»', next: '‹', previous: '›' },
+        aria: { sortAscending: ': ترتيب تصاعدي', sortDescending: ': ترتيب تنازلي' }
+    };
+
+    /**
+     * Server-side table with the dashboard defaults.
+     * opts: { el, url, columns, order, filters: () => ({...}), pageLength, searchPlaceholder, rowUrl: row => url }
+     */
+    function dashTable(opts) {
+        const el = opts.el || '#datatableID';
+        const language = Object.assign({}, dtLanguage, opts.searchPlaceholder ? { searchPlaceholder: opts.searchPlaceholder } : {});
+        if (opts.emptyTable) language.emptyTable = opts.emptyTable;
+
+        const table = new DataTable(el, {
+            processing: true,
+            serverSide: true,
+            autoWidth: false,
+            pageLength: opts.pageLength || 15,
+            lengthMenu: [10, 15, 25, 50, 100],
+            order: opts.order || [[0, 'desc']],
+            searchDelay: 350,
+            language: language,
+            layout: {
+                topStart: 'search',
+                topEnd: opts.topEnd || 'pageLength',
+                bottomStart: 'info',
+                bottomEnd: 'paging'
+            },
+            ajax: {
+                url: opts.url,
+                type: 'GET',
+                data: function (d) { if (opts.filters) Object.assign(d, opts.filters()); }
+            },
+            columns: opts.columns,
+            createdRow: function (row, data) {
+                if (opts.rowUrl) {
+                    const url = opts.rowUrl(data);
+                    if (url) { row.dataset.href = url; row.classList.add('row-link'); }
                 }
             },
-            processResults: function (response) {
-                return {
-                    results: response.results,
-                    pagination: response.pagination,
-                };
-            },
-            cache: false
+            drawCallback: function () { initTooltips(this.api().table().container()); }
+        });
+
+        return table;
+    }
+
+    function rowActions(actions) {
+        let html = '<div class="row-actions">';
+        if (actions.view) {
+            html += '<a href="' + esc(actions.view) + '" class="btn btn-icon" data-bs-toggle="tooltip" title="عرض التفاصيل"><i class="bi bi-eye"></i></a>';
         }
-    });
-}
-//------------------------ custom Datatable ----------------------------
-function customDatatable({ id = '#datatableID', url, columns, pageLength = 10, dataFilter, bInfo = true, paging = true, ordering = true, searching = true, destroy = false, order = [[0, 'asc']] } = {}) {
-    return new DataTable(id, {
-        processing: true, serverSide: true, responsive: true,
-        destroy: destroy,
-        pageLength: pageLength,
-        bInfo: bInfo,// hide showing entries
-        paging: paging,//hide pagination
-        ordering: ordering,
-        searching: searching,
-        order: order,
-        language: {
-            url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/ar.json',
-        },
-        ajax: {
-            url: baseUrl + url,
-            type: "get",
-            dataType: "json",
-            data: dataFilter,
-        },
-        columns: columns[0].columns,
-    });
-}
-
-$('button#btnSearchFilterDataTableId').click(function () {
-    $('#datatableID').DataTable().ajax.reload();
-});
-
-function dropdownActionDataTable({
-    dataId,
-    showId = null,
-    hrefShow = "javascript:void(0)",
-    showDataAction = null,
-    editId,
-    hrefEdit = "javascript:void(0)",
-    editDataAction,
-    hasPermUpdate = true,
-    deleteId,
-    hrefDelete = "javascript:void(0)",
-    deleteDataAction,
-    hasPermDelete = true,
-} = {}) {
-    var text = '<div class="dropdown dropdown-action mx-3"><a  class="dropdown dropdown-toggle action-icon" data-bs-toggle="dropdown" href="javascript:void(0)" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical fs-4 fw-bold"></i></a><div class="dropdown-menu">';
-    if (showId != null) {
-        text += '<a id="' + showId + '" href="' + hrefShow + '" data-action="' + baseUrl +
-            showDataAction +
-            '" class="dropdown-item"><i class="fa-solid fa-eye me-2 color-hint"></i>مشاهدة</a>';
-    }
-    if (hasPermUpdate)
-        text += '<a id="' +
-            editId + '" href="' + hrefEdit + '" data-action="' +
-            baseUrl + editDataAction +
-            '" data-id="' + dataId +
-            '" class="dropdown-item mt-1"><i class="fa-solid fa-pen me-2 color-hint"></i>تعديل</a>';
-    if (hasPermDelete)
-        text += '<a id="' + deleteId + '" data-id="' + dataId + '" data-action="' +
-            baseUrl +
-            deleteDataAction +
-            '" class="dropdown-item mt-1" href="' + hrefDelete +
-            '"><i class="fa-solid fa-trash-can me-2 color-hint"></i>حذف</a>';
-
-    return text += '</div></div>';
-}
-
-//------------------------ swal alert ----------------------------
-function swalToast({ title, icon = "success" } = {}) {
-    const Toast = Swal.mixin({
-        toast: true,
-        position: "top-end",
-        showConfirmButton: false,
-        timer: 5000,
-        timerProgressBar: true,
-        didOpen: (toast) => {
-            toast.onmouseenter = Swal.stopTimer;
-            toast.onmouseleave = Swal.resumeTimer;
+        if (actions.edit) {
+            html += '<a href="' + esc(actions.edit) + '" class="btn btn-icon" data-bs-toggle="tooltip" title="تعديل"><i class="bi bi-pencil"></i></a>';
         }
+        if (actions.del) {
+            html += '<button type="button" class="btn btn-icon danger" data-bs-toggle="tooltip" title="حذف" data-delete-url="' + esc(actions.del) +
+                '" data-confirm="' + esc(actions.delConfirm || 'سيتم حذف هذا السجل نهائياً.') + '" data-after="table"><i class="bi bi-trash3"></i></button>';
+        }
+        return html + '</div>';
+    }
+
+    function reloadTables() {
+        if (window.DataTable) {
+            DataTable.tables({ api: true }).ajax.reload(null, false);
+        }
+    }
+
+    function initTooltips(scope) {
+        (scope || document).querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+            bootstrap.Tooltip.getOrCreateInstance(el, { container: 'body', trigger: 'hover' });
+        });
+    }
+
+    function after(mode, res) {
+        if (mode === 'table') reloadTables();
+        else if (mode === 'remove') { /* handled by caller */ }
+        else if (mode && mode !== 'reload') window.location.href = mode;
+        else setTimeout(function () { window.location.reload(); }, 450);
+    }
+
+    // ---------- Image picker ----------
+    function previewSelectedImage(event, elementId) {
+        const input = event.target;
+        const img = document.getElementById(elementId);
+        if (input.files && input.files[0] && img) {
+            const reader = new FileReader();
+            reader.onload = function (e) { img.src = e.target.result; };
+            reader.readAsDataURL(input.files[0]);
+            const name = input.closest('.image-picker')?.querySelector('.picker-file');
+            if (name) name.textContent = input.files[0].name;
+        }
+    }
+
+    // ---------- Theme ----------
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-bs-theme', theme);
+        document.querySelectorAll('[data-theme-icon]').forEach(function (i) {
+            i.className = theme === 'dark' ? 'bi bi-sun' : 'bi bi-moon-stars';
+        });
+    }
+
+    // ---------- Delegated behaviour ----------
+    $(document).on('click', 'tr.row-link', function (e) {
+        if (e.target.closest('a, button, input, label, .dropdown, .dropdown-menu')) return;
+        const href = this.dataset.href;
+        if (!href) return;
+        if (e.ctrlKey || e.metaKey) window.open(href, '_blank');
+        else window.location.href = href;
     });
-    Toast.fire({ icon: icon, title: title });
-}
 
-function swalAlertDeleteConfirm({ isConfirmed } = {}) {
-    Swal.fire({
-        text: 'تأكيد عملية الحذف ؟',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'نعم',
-        cancelButtonText: 'خروج'
-    }).then((result) => {
-        if (result.isConfirmed)
-            isConfirmed();
-    })
-}
-
-function swalAlertConfirm({ text, isConfirmed } = {}) {
-    Swal.fire({
-        text: text,
-        icon: 'info',
-        showCancelButton: true,
-        confirmButtonColor: '#3085d6',
-        cancelButtonColor: '#d33',
-        confirmButtonText: 'نعم',
-        cancelButtonText: 'خروج'
-    }).then((result) => {
-        if (result.isConfirmed)
-            isConfirmed();
-    })
-}
-//------------------------ validation ----------------------------
-function requiredValidation(selector) {
-    var myVal = $(selector).val();
-    if (myVal == "") {
-        $(selector + '_err').html('الحقل مطلوب');
-        return false;
-    } else {
-        $(selector + '_err').html('');
-        return true;
-    }
-}
-function requiredValidationSelectorError(selector, selectorError) {
-    var myVal = $(selector).val();
-    if (myVal == "") {
-        $(selectorError).html('الحقل مطلوب');
-        return false;
-    } else {
-        $(selectorError).html('');
-        return true;
-    }
-}
-function requiredMaxValidation({ selector, max = 255, note = 'حرفاً' } = {}) {
-    var myVal = $(selector).val();
-    if (myVal == "") {
-        $(selector + '_err').html('الحقل مطلوب');
-        return false;
-    } else if (myVal.length > max) {
-        $(selector + '_err').html('يجب أن يكون طول الحقل الأقصى ' + max + ' ' + note);
-        return false;
-    } else {
-        $(selector + '_err').html('');
-        return true;
-    }
-}
-function maxValidation({ selector, max, note = 'حرفاً' } = {}) {
-    var myVal = $(selector).val();
-    if (myVal.length > max) {
-        $(selector + '_err').html('يجب أن يكون طول الحقل الأقصى ' + max + ' ' + note);
-        return false;
-    } else {
-        $(selector + '_err').html('');
-        return true;
-    }
-}
-function requiredMinValidation({ selector, min, note = 'حرفاً' } = {}) {
-    var myVal = $(selector).val();
-    if (myVal == "") {
-        $(selector + '_err').html('الحقل مطلوب');
-        return false;
-    } else if (myVal.length < min) {
-        $(selector + '_err').html('يجب أن يكون طول الحقل على الأقل ' + min + ' ' + note);
-        return false;
-    } else {
-        $(selector + '_err').html('');
-        return true;
-    }
-}
-function emailValidation(selector) {
-    var pattern1 = /^([\w-\.]+@([\w-]+\.)+[\w-]{2,4})?$/;
-    var email = $(selector).val();
-    var validemail = pattern1.test(email);
-    if (!validemail) {
-        $(selector + '_err').html('البريد الإلكتروني غير صالح');
-        return false;
-    } else if (email == "") {
-        $(selector + '_err').html('الحقل مطلوب');
-        return false;
-    } else {
-        $(selector + '_err').html('');
-        return true;
-    }
-}
-function generateRandomString({ length = 8 } = {}) {
-    const characters = "abcdewxyz@0123456789#";
-    let result = "";
-    for (let i = 0; i < length; i++) {
-        result += characters.charAt(Math.floor(Math.random() * characters.length));
-    }
-    return result;
-}
-//------------------------custom-------------------------------
-$(document).ready(function () {
-    // PAGE LOADING
-    $(window).on("load", function (e) {
-        $("#global-loader").fadeOut("slow");
-    });
-    $('.my-btn-close-alert').click(function () {
-        $('.alert-danger-top #top-message').css('display', 'none');
-    })
-
-    //datetimepicker
-    if ($('.custom-datetime-picker').length > 0) {
-        $('.custom-datetime-picker').datetimepicker({
-            format: 'YYYY-MM-DD',
-            icons: {
-                up: "fa fa-angle-up",
-                down: "fa-solid fa-angle-down",
-                next: 'fa-solid fa-angle-right',
-                previous: 'fa-solid fa-angle-left'
-            }
-        });
-    }
-    if ($('.custom-year-datetime-picker').length > 0) {
-        $('.custom-year-datetime-picker').datetimepicker({
-            format: 'YYYY',
-            viewMode: "years",
-            icons: {
-                up: "fa fa-angle-up",
-                down: "fa-solid fa-angle-down",
-                next: 'fa-solid fa-angle-right',
-                previous: 'fa-solid fa-angle-left'
-            }
-        });
-    }
-    if ($('.custom-month-datetime-picker').length > 0) {
-        $('.custom-month-datetime-picker').datetimepicker({
-            format: 'MM',
-            viewMode: 'months',
-        });
-    }
-    if ($('.custom-time-picker').length > 0) {
-        $('.custom-time-picker').datetimepicker({
-            format: "HH:mm",
-            icons: {
-                up: "fa fa-angle-up",
-                down: "fa-solid fa-angle-down",
-                next: 'fa-solid fa-angle-right',
-                previous: 'fa-solid fa-angle-left'
-            }
-        });
-    }
-
-    // --------------- users----------------------
-    $('#formDataLogout #submitLogout').click(function (e) {
+    // <button data-delete-url="..." data-confirm="..." data-after="table|reload|<url>">
+    $(document).on('click', '[data-delete-url]', function (e) {
         e.preventDefault();
-        $("#formDataLogout").submit()
+        const btn = this;
+        bootstrap.Tooltip.getInstance(btn)?.hide();
+        confirmAction({
+            title: btn.dataset.confirmTitle || 'تأكيد الحذف',
+            text: btn.dataset.confirm || 'لا يمكن التراجع عن هذه العملية.',
+            confirmText: 'حذف',
+            danger: true
+        }).then(function (ok) {
+            if (!ok) return;
+            busy(true);
+            request('DELETE', btn.dataset.deleteUrl)
+                .then(function (res) { after(btn.dataset.after || 'reload', res); })
+                .catch(function () { })
+                .finally(function () { busy(false); });
+        });
     });
 
-});
-//-------------------------function ajax---------------------
+    // <a data-status-url="..." data-id="1" data-status="Active" data-confirm="...">
+    $(document).on('click', '[data-status-url]', function (e) {
+        e.preventDefault();
+        const el = this;
+        if (el.classList.contains('active')) return;
+        const go = function () {
+            const data = new FormData();
+            data.append('id', el.dataset.id);
+            data.append('status', el.dataset.status);
+            busy(true);
+            request('POST', el.dataset.statusUrl, data)
+                .then(function () { after(el.dataset.after || (el.closest('table.dataTable') ? 'table' : 'reload')); })
+                .catch(function () { })
+                .finally(function () { busy(false); });
+        };
+        if (el.dataset.confirm) {
+            confirmAction({ text: el.dataset.confirm, danger: true }).then(function (ok) { if (ok) go(); });
+        } else go();
+    });
 
+    // <form data-confirm="question" [data-confirm-danger]> — asks before submitting.
+    // Every regular form also locks its submit button to stop double submissions.
+    $(document).on('submit', 'form:not([data-no-lock])', function (e) {
+        const form = this;
+        if (form.dataset.confirm && !form.dataset.confirmed) {
+            e.preventDefault();
+            const submitter = e.originalEvent && e.originalEvent.submitter;
+            confirmAction({
+                text: (submitter && submitter.dataset.confirm) || form.dataset.confirm,
+                danger: form.hasAttribute('data-confirm-danger'),
+                confirmText: form.dataset.confirmText || 'تأكيد'
+            }).then(function (ok) {
+                if (!ok) return;
+                form.dataset.confirmed = '1';
+                if (submitter && submitter.name) {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden'; hidden.name = submitter.name; hidden.value = submitter.value;
+                    form.appendChild(hidden);
+                }
+                form.requestSubmit ? form.requestSubmit() : form.submit();
+            });
+            return;
+        }
+        const btn = (e.originalEvent && e.originalEvent.submitter) || form.querySelector('[type="submit"]');
+        if (btn && !btn.disabled) {
+            btn.dataset.originalHtml = btn.innerHTML;
+            setTimeout(function () {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> ' + (btn.dataset.loadingText || 'جارٍ الحفظ...');
+            }, 0);
+        }
+    });
 
+    // Restore buttons when the page comes back from the bfcache (browser back button).
+    window.addEventListener('pageshow', function (e) {
+        if (!e.persisted) return;
+        document.querySelectorAll('[data-original-html]').forEach(function (b) {
+            b.disabled = false; b.innerHTML = b.dataset.originalHtml;
+        });
+    });
+
+    // Drag & drop on image pickers.
+    $(document).on('dragover', '.image-picker', function (e) { e.preventDefault(); this.classList.add('is-dragover'); });
+    $(document).on('dragleave drop', '.image-picker', function () { this.classList.remove('is-dragover'); });
+    $(document).on('drop', '.image-picker', function (e) {
+        e.preventDefault();
+        const input = this.querySelector('input[type=file]');
+        const files = e.originalEvent.dataTransfer.files;
+        if (input && files.length) {
+            input.files = files;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+
+    $(document).on('click', '[data-theme-toggle]', function (e) {
+        e.preventDefault();
+        const next = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+        try { localStorage.setItem('dash-theme', next); } catch (err) { }
+        applyTheme(next);
+        document.dispatchEvent(new CustomEvent('dash:theme', { detail: next }));
+    });
+
+    $(function () {
+        applyTheme(document.documentElement.getAttribute('data-bs-theme') || 'light');
+        initTooltips();
+    });
+
+    // ---------- Public API ----------
+    Object.assign(window, {
+        esc: esc,
+        orDash: orDash,
+        money: money,
+        fmtDate: fmtDate,
+        avatar: avatar,
+        uploadUrl: uploadUrl,
+        statusInfo: statusInfo,
+        statusPill: statusPill,
+        statusMenu: statusMenu,
+        toast: toast,
+        swalToast: function (o) { toast(o && o.title, o && o.icon); },
+        showErrors: showErrors,
+        confirmAction: confirmAction,
+        busy: busy,
+        dashRequest: request,
+        dashTable: dashTable,
+        rowActions: rowActions,
+        reloadTables: reloadTables,
+        initTooltips: initTooltips,
+        previewSelectedImage: previewSelectedImage
+    });
+})();

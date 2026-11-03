@@ -1,99 +1,57 @@
-@use('App\Enums\PermissionEnum')
-<aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
-    <div class="sidebar-brand"> <a href="{{ route('dashboard') }}" class="brand-link">
-            <span class="brand-text fs-3 fw-semibold">لوحة تحكم الإدارة</span> </a>
+@php
+    $attention = \App\Support\Dashboard\AdminAttention::counts();
+    $menu = [
+        ['header' => null, 'items' => [
+            ['route' => 'dashboard', 'match' => 'dashboard', 'icon' => 'bi-grid-1x2', 'label' => 'الرئيسية'],
+        ]],
+        ['header' => 'العمليات', 'items' => [
+            ['route' => 'dashboard.requests-management.index', 'match' => ['dashboard.requests-management.*', 'dashboard.response-management.*'], 'icon' => 'bi-clipboard-check', 'label' => 'الطلبات والعروض'],
+            ['route' => 'dashboard.shipping-request-management.index', 'match' => 'dashboard.shipping-request-management.*', 'icon' => 'bi-truck', 'label' => 'الشحن', 'badge' => $attention['shipping']],
+            ['route' => 'dashboard.complaint-management.complaints', 'match' => 'dashboard.complaint-management.*', 'icon' => 'bi-flag', 'label' => 'الشكاوى', 'badge' => $attention['complaints']],
+        ]],
+        ['header' => 'الحسابات', 'items' => [
+            ['route' => 'dashboard.vendors-management.vendors.index', 'match' => 'dashboard.vendors-management.vendors.*', 'icon' => 'bi-building', 'label' => 'الشركات'],
+            ['route' => 'dashboard.vendors-management.join-requests.index', 'match' => 'dashboard.vendors-management.join-requests.*', 'icon' => 'bi-building-add', 'label' => 'طلبات الانضمام', 'badge' => $attention['joinRequests']],
+            ['route' => 'dashboard.customers.index', 'match' => 'dashboard.customers.*', 'icon' => 'bi-people', 'label' => 'العملاء'],
+        ]],
+        ['header' => 'الإعدادات', 'items' => [
+            ['route' => 'dashboard.categories.index', 'match' => ['dashboard.categories.*', 'dashboard.custom-fields.*'], 'icon' => 'bi-tags', 'label' => 'الأقسام والعمولات'],
+            ['route' => 'dashboard.settings.notification-emails.index', 'match' => 'dashboard.settings.notification-emails.*', 'icon' => 'bi-envelope-at', 'label' => 'إيميلات الإشعارات'],
+            ['route' => 'dashboard.logs.index', 'match' => 'dashboard.logs.*', 'icon' => 'bi-terminal', 'label' => 'سجلات النظام'],
+        ]],
+    ];
+@endphp
+
+<aside class="app-sidebar shadow" data-bs-theme="dark">
+    <div class="sidebar-brand">
+        <a href="{{ route('dashboard') }}" class="brand-link">
+            <span class="brand-mark"><i class="bi bi-car-front-fill"></i></span>
+            <span class="brand-text">{{ config('app.name') }}<small>لوحة تحكم الإدارة</small></span>
+        </a>
     </div>
     <div class="sidebar-wrapper">
-        <nav class="mt-2">
-            <ul class="nav sidebar-menu flex-column" data-lte-toggle="treeview" role="menu" data-accordion="false">
-                <li class="nav-item"> <a href="{{ route('dashboard') }}"
-                        class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                        <i class="nav-icon fa fa-house"></i>
-                        <p>الرئيسية</p>
-                    </a>
-                </li>
-                <li class="nav-item"> <a href="#" class="nav-link">
-                        <i class="nav-icon fa-solid fa-gear"></i>
-                        <p>الإعدادات</p>
-                    </a>
-                </li>
-                <li class="nav-item"> <a href="{{ route('dashboard.categories.index') }}"
-                        class="nav-link {{ request()->routeIs('dashboard.categories.*') ? 'active' : '' }}">
-                        <i class="nav-icon fa-solid fa-layer-group"></i>
-                        <p> الأقسام</p>
-                    </a>
-                </li>
-
-                <li class="nav-item"> <a href="{{ route('dashboard.customers.index') }}"
-                        class="nav-link {{ request()->routeIs('dashboard.customers.*') ? 'active' : '' }}">
-                        <i class="nav-icon fa-solid fa-users"></i>
-                        <p> إدارة العملاء</p>
-                    </a>
-                </li>
-
-                <li class="nav-item {{ request()->routeIs('dashboard.vendors-management.*') ? 'menu-open' : '' }}">
-                    <a href="#"
-                        class="nav-link {{ request()->routeIs('dashboard.vendors-management.*') ? 'active' : '' }}"> <i
-                            class="nav-icon fa-solid fa-building"></i>
-                        <p>إدارة الشركات <i class="nav-arrow bi bi-chevron-right"></i></p>
-                    </a>
-                    <ul class="nav nav-treeview">
-                        <li class="nav-item"> <a href="{{ route('dashboard.vendors-management.vendors.index') }}"
-                                class="nav-link {{ request()->routeIs('dashboard.vendors-management.vendors.*') ? 'active' : '' }}">
-                                <i class="nav-icon bi bi-circle"></i>
-                                <p>الشركات</p>
+        <nav>
+            <ul class="nav sidebar-menu flex-column" role="menu">
+                @foreach ($menu as $section)
+                    @if ($section['header'])
+                        <li class="nav-header">{{ $section['header'] }}</li>
+                    @endif
+                    @foreach ($section['items'] as $item)
+                        @php $active = request()->routeIs(...(array) $item['match']); @endphp
+                        <li class="nav-item">
+                            <a href="{{ route($item['route']) }}" class="nav-link {{ $active ? 'active' : '' }}"
+                                @if ($active) aria-current="page" @endif>
+                                <i class="nav-icon bi {{ $item['icon'] }}"></i>
+                                <p>
+                                    {{ $item['label'] }}
+                                    @if (!empty($item['badge']))
+                                        <span class="nav-badge">{{ $item['badge'] > 99 ? '99+' : $item['badge'] }}</span>
+                                    @endif
+                                </p>
                             </a>
                         </li>
-                        <li class="nav-item"> <a href="{{ route('dashboard.vendors-management.join-requests.index') }}"
-                                class="nav-link {{ request()->routeIs('dashboard.vendors-management.join-requests.*') ? 'active' : '' }}">
-                                <i class="nav-icon bi bi-circle"></i>
-                                <p>طلبات الإنضمام</p>
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-
-                <li class="nav-item"> <a href="{{ route('dashboard.requests-management.index') }}"
-                        class="nav-link {{ request()->routeIs('dashboard.requests-management.*') ? 'active' : '' }}">
-                        <i class="nav-icon fa-solid fa-clipboard"></i>
-                        <p>الطلبات وردود الشركات</p>
-                    </a>
-                </li>
-
-                <li class="nav-item"> <a href="{{ route('dashboard.shipping-request-management.index') }}"
-                        class="nav-link {{ request()->routeIs('dashboard.shipping-request-management.*') ? 'active' : '' }}">
-                        <i class="nav-icon fa-solid fa-truck-fast"></i>
-                        <p>إدارة طلبات الشحن</p>
-                    </a>
-                </li>
-
-                <li class="nav-item"> <a href="#" class="nav-link">
-                        <i class="nav-icon fa-solid fa-money-check-dollar"></i>
-                        <p>نظام العمولات</p>
-                    </a>
-                </li>
-
-                <li class="nav-item"> <a href="{{ route('dashboard.complaint-management.complaints') }}"
-                        class="nav-link {{ request()->routeIs('dashboard.complaint-management.*') ? 'active' : '' }}">
-                        <i class="nav-icon fa-solid fa-flag"></i>
-                        <p>الشكاوي</p>
-                    </a>
-                </li>
-
-                <li class="nav-item"> <a href="{{ route('dashboard.settings.notification-emails.index') }}"
-                        class="nav-link {{ request()->routeIs('dashboard.settings.notification-emails.*') ? 'active' : '' }}">
-                        <i class="nav-icon fa-solid fa-envelope"></i>
-                        <p>إيميلات الإشعارات</p>
-                    </a>
-                </li>
-
-                <li class="nav-item"> <a href="{{ route('dashboard.logs.index') }}"
-                        class="nav-link {{ request()->routeIs('dashboard.logs.*') ? 'active' : '' }}">
-                        <i class="nav-icon fa-solid fa-note-sticky"></i>
-                        <p>Logs</p>
-                    </a>
-                </li>
-
+                    @endforeach
+                @endforeach
             </ul>
         </nav>
     </div>

@@ -21,10 +21,15 @@ trait HandlesDatatablesTrait
     {
         $orderColumnIndex = $request->input('order.0.column', 0);
         $getColumn = $request->input("columns.{$orderColumnIndex}");
-        $orderColumnName = !empty($getColumn['data']) ? $getColumn['data'] : $getColumn['name'];
-        $orderDirection = $request->input('order.0.dir', 'asc');
+        // A column's "name" wins over its "data" key, so joined tables can sort by a qualified
+        // column (e.g. name: 'complaints.id') while still reading the plain key from each row.
+        $orderColumnName = !empty($getColumn['name']) ? $getColumn['name'] : ($getColumn['data'] ?? null);
+        $orderDirection = strtolower($request->input('order.0.dir', 'asc')) === 'desc' ? 'desc' : 'asc';
 
-        $query->orderBy($orderColumnName, $orderDirection);
+        if (!empty($getColumn['orderable']) && $getColumn['orderable'] !== 'false' && is_string($orderColumnName)
+            && preg_match('/^[A-Za-z0-9_.]+$/', $orderColumnName)) {
+            $query->orderBy($orderColumnName, $orderDirection);
+        }
     }
 
     private function applyPaginate(Request $request, $query)

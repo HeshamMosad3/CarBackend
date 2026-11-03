@@ -1,200 +1,158 @@
 @extends('dashboard.layouts.app')
 @section('title', 'الحقول المخصصة')
 @section('content')
-    <main class="app-main">
-        <div class="app-content-header py-2">
-            <div class="container-fluid">
-                <div class="row">
-                    <div class="col-sm-6">
-                        <ol class="breadcrumb float-sm-start">
-                            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">الرئيسية</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">
-                                الحقول المخصصة لقسم : {{ $categoryName ?? '' }}
-                            </li>
-                        </ol>
-                    </div>
-                    {{-- <div class="col-sm-6">
-                        <div class="float-sm-end">
-                            <a href="{{ route('dashboard.categories.create') }}" class="btn btn-primary"><i
-                                    class="fa-solid fa-plus me-1"></i>
-                                إضافة قسم</a>
-                        </div>
-                    </div> --}}
+    @php
+        use App\Enums\CustomFieldTypeEnum as FieldType;
+        $categoryId = request()->route('categoryId');
+        $types = [
+            FieldType::Text->value => ['نص قصير', 'bi-input-cursor-text'],
+            FieldType::TextArea->value => ['نص طويل', 'bi-textarea-t'],
+            FieldType::Number->value => ['رقم', 'bi-123'],
+            FieldType::Date->value => ['تاريخ', 'bi-calendar3'],
+            FieldType::File->value => ['ملف / صورة', 'bi-paperclip'],
+        ];
+    @endphp
+
+    <x-dash.page-header :title="'الحقول المخصصة: ' . $categoryName"
+        subtitle="حقول إضافية يعبّئها العميل عند إنشاء طلب في هذا القسم."
+        :crumbs="['الأقسام' => route('dashboard.categories.index'), $categoryName => route('dashboard.categories.edit', $categoryId), 'الحقول المخصصة' => null]">
+        <button type="button" class="btn btn-primary" id="btnAddField"><i class="bi bi-plus-lg"></i> إضافة حقل</button>
+    </x-dash.page-header>
+
+    <div class="app-content">
+        <div class="card table-card">
+            @if ($customFields->isEmpty())
+                <x-dash.empty icon="bi-ui-checks" title="لا توجد حقول مخصصة"
+                    text="سيرى العميل الحقول الأساسية فقط عند إنشاء طلب في هذا القسم." />
+            @else
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>عنوان الحقل</th>
+                                <th>المعرّف</th>
+                                <th>النوع</th>
+                                <th>إلزامي</th>
+                                <th class="text-end">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($customFields as $item)
+                                <tr>
+                                    <td class="cell-title">{{ $item->label_ar }}</td>
+                                    <td><code class="ltr">{{ $item->field_name }}</code></td>
+                                    <td>
+                                        <span class="chip mb-0"><i class="bi {{ $types[$item->field_type][1] ?? 'bi-question' }}"></i>{{ $types[$item->field_type][0] ?? $item->field_type }}</span>
+                                    </td>
+                                    <td>
+                                        @if ($item->is_required)
+                                            <span class="status-pill tone-primary">إلزامي</span>
+                                        @else
+                                            <span class="status-pill tone-secondary">اختياري</span>
+                                        @endif
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="row-actions">
+                                            <button type="button" class="btn btn-icon js-edit-field" data-bs-toggle="tooltip" title="تعديل"
+                                                data-label="{{ $item->label_ar }}" data-name="{{ $item->field_name }}"
+                                                data-type="{{ $item->field_type }}" data-required="{{ $item->is_required ? 1 : 0 }}">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+                                            <button type="button" class="btn btn-icon danger" data-bs-toggle="tooltip" title="حذف"
+                                                data-delete-url="{{ route('dashboard.custom-fields.delete', $item->id) }}"
+                                                data-confirm="سيتم حذف الحقل «{{ $item->label_ar }}» من نموذج الطلب.">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
-            </div>
+            @endif
         </div>
-        <div class="app-content">
-            <div class="container-fluid">
+    </div>
 
-                <div class="card card-primary card-outline mb-5 mt-1">
-                    <div class="card-header py-2">
-                        <div class="card-title">إضافة قسم</div>
-                    </div>
-                    <form method="POST" id="formDataID" action="{{ route('dashboard.custom-fields.save-custom-field') }}"
-                        enctype="multipart/form-data" autocomplete="off">
-                        @csrf
-                        <input type="hidden" name="categoryId" value="{{ request()->route('categoryId') }}">
-                        <div class="card-body">
-                            <div class="row mb-3">
-                                <div class="col-md-6 form-group">
-                                    <x-custom.label :label="'عنوان الحقل'" :labelRequired="true" :name="'labelAr'" />
-                                    <input type="text" name="labelAr" id="labelAr" value="{{ old('labelAr') }}"
-                                        class="form-control">
-                                    <span class="error" id="labelAr_err">{{ $errors->first('labelAr') }}</span>
-                                </div>
-                                <div class="col-md-6 form-group">
-                                    <x-custom.label :label="'إسم الحقل (إنجليزي بدون مسافات)'" :labelRequired="true" :name="'fieldName'" />
-                                    <input type="text" name="fieldName" id="fieldName" value="{{ old('fieldName') }}"
-                                        class="form-control">
-                                    <span class="error" id="fieldName_err">{{ $errors->first('fieldName') }}</span>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3">
-                                <div class="col-md-6 form-group">
-                                    <x-custom.label :label="'نوع الحقل'" :labelRequired="true" :name="'fieldType'" />
-                                    <select class="form-control form-select form-control-sm" name="fieldType">
-                                        <option value="{{ \App\Enums\CustomFieldTypeEnum::Text->value }}" selected>
-                                            {{ \App\Enums\CustomFieldTypeEnum::Text->value }}
-                                        </option>
-                                        <option value="{{ \App\Enums\CustomFieldTypeEnum::TextArea->value }}">
-                                            {{ \App\Enums\CustomFieldTypeEnum::TextArea->value }}
-                                        </option>
-                                        <option value="{{ \App\Enums\CustomFieldTypeEnum::Number->value }}">
-                                            {{ \App\Enums\CustomFieldTypeEnum::Number->value }}
-                                        </option>
-                                        <option value="{{ \App\Enums\CustomFieldTypeEnum::Date->value }}">
-                                            {{ \App\Enums\CustomFieldTypeEnum::Date->value }}
-                                        </option>
-                                        <option value="{{ \App\Enums\CustomFieldTypeEnum::File->value }}">
-                                            {{ \App\Enums\CustomFieldTypeEnum::File->value }}
-                                        </option>
-                                    </select>
-                                    <span class="error" id="fieldType_err"> </span>
-                                </div>
-                            </div>
-
-                            <div class="row mb-3">
-                                <div class="col-md-6 form-group ">
-                                    <div class="form-check form-switch">
-                                        <input type="hidden" name="isRequired" value="0">
-                                        <input type="checkbox" class="form-check-input" name="isRequired" id="isRequired"
-                                            value="1" checked>
-                                        <label class="form-check-label" for="isRequired">الحقل مطلوب (إجبار المستخدم
-                                            على إدخال هذا الحقل)</label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-footer py-3"> <button type="submit" id="btnSave" class="btn btn-primary">
-                                حفظ</button> </div>
-                    </form>
+    <div class="modal fade" id="fieldModal" tabindex="-1" aria-labelledby="fieldModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content" method="POST" action="{{ route('dashboard.custom-fields.save-custom-field') }}" autocomplete="off">
+                @csrf
+                <input type="hidden" name="categoryId" value="{{ $categoryId }}">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="fieldModalTitle">إضافة حقل</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="إغلاق"></button>
                 </div>
-
-                <div class="card card-primary card-outline mb-4 mt-5">
-                    <div class="card-header py-2">
-                        <div class="card-title">الحقول المخصصة لقسم : {{ $categoryName ?? '' }}</div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label" for="labelAr">عنوان الحقل (يظهر للعميل) <span class="text-danger">*</span></label>
+                        <input type="text" name="labelAr" id="labelAr" class="form-control" value="{{ old('labelAr') }}" required
+                            placeholder="مثال: رقم الهيكل">
                     </div>
-                    <div class="card-body">
-                        <div class="table-responsive mt-2">
-                            <table class="table table-hover nowrap dataTable" style="width:100%;">
-                                <thead>
-                                    <tr>
-                                        <th class="text-start">#</th>
-                                        <th class="text-center">عنوان الحقل</th>
-                                        <th class="text-center">إسم الحقل</th>
-                                        <th class="text-center">نوع الحقل</th>
-                                        <th class="text-center">مطلوب</th>
-                                        <th class="text-center"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($customFields as $item)
-                                        <tr>
-                                            <td>{{ $item->id }}</td>
-                                            <td class="text-center align-middle">{{ $item->label_ar }}</td>
-                                            <td class="text-center align-middle">{{ $item->field_name }}</td>
-                                            <td class="text-center align-middle">{{ $item->field_type }}</td>
-                                            <td class="text-center align-middle">
-                                                {{ $item->is_required ? 'نعم' : 'إختياري' }}
-                                            </td>
-
-                                            {{-- <td class="text-center"><img
-                                                    src="{{ url('/uploads/categories-icon/' . $item->cat_icon_path) }}"
-                                                    width="60px" height="50px"></td>
-                                            <td class="text-center align-middle">
-                                                {{ $item->commission_type == App\Enums\CommissionTypeEnum::Amount->value ? 'قيمة' : 'نسبة' }}
-                                            </td> --}}
-
-
-                                            <td class="text-center align-middle">
-                                                <div class="d-flex justify-content-center">
-
-                                                    <a id="editActionDropdownId" href="javascript:void(0)"
-                                                        data-label_ar="{{ $item->label_ar }}"
-                                                        data-field_name="{{ $item->field_name }}"
-                                                        data-field_type="{{ $item->field_type }}"
-                                                        data-is_required="{{ $item->is_required }}"
-                                                        class="btn btn-primary py-2 me-2 btn-sm"><i
-                                                            class="fas fa-pencil-alt text-white"></i></a>
-                                                    <a id="deleteActionDropdownId" href="javascript:void(0)"
-                                                        data-action="{{ url('dashboard/custom-fields-category/delete/' . $item->id) }}"
-                                                        data-id="{{ $item->id }}"
-                                                        class="btn btn-danger py-2 btn-sm"><i
-                                                            class="fas fa-trash"></i></a>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                    <div class="mb-3">
+                        <label class="form-label" for="fieldName">المعرّف البرمجي <span class="text-danger">*</span></label>
+                        <input type="text" name="fieldName" id="fieldName" class="form-control ltr text-start" value="{{ old('fieldName') }}"
+                            required pattern="[A-Za-z][A-Za-z0-9_]*" placeholder="vin_number">
+                        <div class="form-text" id="fieldNameHint">بالإنجليزية، بدون مسافات (حروف وأرقام و _ فقط).</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">نوع الحقل</label>
+                        <div class="row g-2">
+                            @foreach ($types as $value => [$label, $icon])
+                                <div class="col-6">
+                                    <input type="radio" class="btn-check" name="fieldType" id="type_{{ $value }}" value="{{ $value }}"
+                                        @checked(old('fieldType', FieldType::Text->value) === $value)>
+                                    <label class="btn btn-light w-100 justify-content-start" for="type_{{ $value }}"><i class="bi {{ $icon }}"></i> {{ $label }}</label>
+                                </div>
+                            @endforeach
                         </div>
                     </div>
+                    <div class="form-check form-switch">
+                        <input type="hidden" name="isRequired" value="0">
+                        <input type="checkbox" class="form-check-input" name="isRequired" id="isRequired" value="1" @checked(old('isRequired', 1))>
+                        <label class="form-check-label" for="isRequired">حقل إلزامي (لا يمكن إرسال الطلب بدونه)</label>
+                    </div>
                 </div>
-            </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check2"></i> حفظ</button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">إلغاء</button>
+                </div>
+            </form>
         </div>
-    </main>
-
+    </div>
 @endsection
 
 @push('my-java-script')
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    @include('dashboard.included.toast-message')
-    @include('shared.show-alert-validation-error')
+    <style>
+        .btn-check:checked + .btn-light { background: var(--dash-primary-soft); border-color: var(--dash-primary); color: var(--dash-primary); }
+    </style>
     <script>
-        $(document).ready(function() {
+        $(function() {
+            const modalEl = document.getElementById('fieldModal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            const $name = $('#fieldName');
 
-            $(document).on('click', 'a#editActionDropdownId', function(e) {
+            function open(field) {
+                $('#fieldModalTitle').text(field ? 'تعديل الحقل' : 'إضافة حقل');
+                $('#labelAr').val(field ? field.label : '');
+                // The identifier is how a field is matched on save, so it can't be renamed.
+                $name.val(field ? field.name : '').prop('readonly', !!field);
+                $('#fieldNameHint').text(field ? 'لا يمكن تغيير المعرّف بعد إنشاء الحقل.' : 'بالإنجليزية، بدون مسافات (حروف وأرقام و _ فقط).');
+                $('input[name=fieldType][value="' + (field ? field.type : 'text') + '"]').prop('checked', true);
+                $('#isRequired').prop('checked', field ? field.required == 1 : true);
+                modal.show();
+            }
 
-                $('#labelAr').val($(this).data('label_ar'));
-                $('#fieldName').val($(this).data('field_name'));
-                $('select[name="fieldType"]').val($(this).data('field_type'));
-                $('#isRequired').prop('checked', $(this).data('is_required') == 1);
-
+            $('#btnAddField').on('click', () => open(null));
+            $(document).on('click', '.js-edit-field', function() {
+                bootstrap.Tooltip.getInstance(this)?.hide();
+                open($(this).data());
             });
+            modalEl.addEventListener('shown.bs.modal', () => $('#labelAr').trigger('focus'));
 
-            $(document).on('click', 'a#deleteActionDropdownId', function(e) {
-                e.preventDefault();
-                var dataDelete = $(this).data('id');
-                var myUrl = $(this).data('action');
-                swalAlertDeleteConfirm({
-                    isConfirmed: function() {
-                        deleteDataAjax({
-                            url: myUrl,
-                            success: function(res) {
-                                if (res.success) {
-                                    window.location.reload();
-                                } else {
-                                    swalToast({
-                                        title: res.message,
-                                        icon: 'error'
-                                    });
-                                }
-                            }
-                        });
-                    }
-                });
-            });
-        })
+            @if ($errors->any())
+                modal.show();
+            @endif
+        });
     </script>
 @endpush

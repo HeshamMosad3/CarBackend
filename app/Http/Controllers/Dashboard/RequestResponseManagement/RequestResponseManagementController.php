@@ -15,6 +15,7 @@ class RequestResponseManagementController extends Controller
         if ($request->ajax()) {
             return $this->service->index($request, $requestId);
         }
-        return view('dashboard.response-management.index');
+        // The offers now live on the request page itself; keep old links working.
+        return redirect()->to(route('dashboard.requests-management.show', $requestId) . '#offers');
     }
 }

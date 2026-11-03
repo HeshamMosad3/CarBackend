@@ -18,7 +18,7 @@ class VendorManagementService extends BaseService
         return $this->repo->formatResponseDataTables(
             draw: $request->input('draw'),
             recordsCount: $this->repo->recordsCountVendors(),
-            recordsCountwithFilter: $this->repo->recordsCountVendorsWithFilter($searchValue),
+            recordsCountwithFilter: $this->repo->recordsCountVendorsWithFilter($searchValue, $request),
             records: $this->repo->index($request, $searchValue)
         );
     }
@@ -35,8 +35,9 @@ class VendorManagementService extends BaseService
         $vendorDocument = $this->repo->getVendorDocumentByVendorId($vendor->vendor_id);
         $vendorCities = $this->repo->getVendorCities($vendor->vendor_id);
         $vendorCategories = $this->repo->getVendorCategories($vendor->vendor_id);
+        $responsesCount = \App\Models\RequestResponse::where('vendor_id', $vendor->vendor_id)->count();
 
-        return compact('vendor', 'vendorDocument', 'vendorCities', 'vendorCategories');
+        return compact('vendor', 'vendorDocument', 'vendorCities', 'vendorCategories', 'responsesCount');
     }
 
     public function deleteVendor(Request $request, $userId)

@@ -15,19 +15,22 @@ class ComplaintManagemntService
     {
         $searchValue = $request->input('search.value');
 
-        $recordsCount =  $this->repo->getTotalRecordsCount(Complaint::class);
-        $recordsCountwithFilter = Complaint::select('count(*) as allcount')->searchValueFilter($searchValue)->count();;
         $records = $this->repo->index($request, $searchValue);
 
         foreach ($records as $record) {
-            $record->subject = ComplaintSubjectEnum::trans($record->subject);
+            $record->subject_label = ComplaintSubjectEnum::trans($record->subject);
         }
 
         return $this->repo->formatResponseDataTables(
             draw: $request->input('draw'),
-            recordsCount: $recordsCount,
-            recordsCountwithFilter: $recordsCountwithFilter,
+            recordsCount: $this->repo->getTotalRecordsCount(Complaint::class),
+            recordsCountwithFilter: $this->repo->countWithFilter($request, $searchValue),
             records: $records
         );
+    }
+
+    public function statusCounts(): array
+    {
+        return $this->repo->statusCounts();
     }
 }

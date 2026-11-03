@@ -2,7 +2,9 @@
 
 namespace App\Http\Repositories\Dashboard\ShippingRequestManagement;
 
+use App\Enums\StatusShippingRequestEnum as Status;
 use App\Models\ShippingRequest;
+use App\Support\Dashboard\AdminAttention;
 use App\Traits\HandlesDatatablesTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -13,9 +15,12 @@ class ShippingRequestManagementRepository
 
     use HandlesDatatablesTrait;
 
+    /** The list tabs. Each maps to a set of statuses (or a rule from AdminAttention). */
+    public const GROUPS = ['action', 'refund', 'waiting', 'active', 'done', 'closed'];
+
     public function index(Request $request, $searchValue)
     {
-        $query = ShippingRequest::select(
+        $query = $this->filteredQuery($request, $searchValue)->select(
             'shipping_requests.id',
             'shipping_requests.request_id',
             'shipping_requests.response_id',
@@ -29,16 +34,65 @@ class ShippingRequestManagementRepository
             'shipping_requests.payment_status',
             'shipping_requests.status',
             'shipping_requests.created_at as shipping_request_date',
-        )
-            ->confirmShippingFilter($request->input('confirmShippingFilter'))
-            ->orderBy('shipping_requests.created_at', 'desc');
+            'shipping_requests.carrier_name',
+            'shipping_requests.tracking_number',
+        );
 
         return $this->paginateRecordsForDatatables($request, $query);
     }
 
-    public function recordsCountShippingRequestWithFilter($searchValue)
+    public function recordsCountShippingRequestWithFilter($searchValue, ?Request $request = null)
     {
-        return ShippingRequest::select('count(*) as allcount')->searchValueFilter($searchValue)->count();
+        return $this->filteredQuery($request, $searchValue)->count();
+    }
+
+    /** Rows and filtered count share this, so the pager always matches the rows. */
+    private function filteredQuery(?Request $request, $searchValue)
+    {
+        $group = $request ? $request->input('group') : null;
+
+        return $this->applyGroup(ShippingRequest::query(), in_array($group, self::GROUPS, true) ? $group : null)
+            ->when($searchValue, function ($q, $value) {
+                $q->whereAny([
+                    'shipping_requests.id',
+                    'shipping_requests.request_id',
+                    'shipping_requests.response_id',
+                    'shipping_requests.city_origin_vendor',
+                    'shipping_requests.city_origin_dimensions',
+                    'shipping_requests.phone_origin_dimensions',
+                    'shipping_requests.tracking_number',
+                    'shipping_requests.oto_id',
+                    'shipping_requests.carrier_name',
+                ], 'like', '%' . $value . '%');
+            });
+    }
+
+    public function applyGroup($query, ?string $group)
+    {
+        $statuses = fn (array $list) => array_map(fn (Status $s) => $s->value, $list);
+
+        return match ($group) {
+            'action' => AdminAttention::shippingNeedsAction($query),
+            'refund' => AdminAttention::shippingNeedsRefund($query),
+            'waiting' => $query->where(function ($q) use ($statuses) {
+                $q->whereIn('shipping_requests.status', $statuses([Status::AwaitingCustomerApproval, Status::AwaitingCustomerData, Status::AwaitingPayment]))
+                    ->orWhere(fn ($q) => $q->where('shipping_requests.status', Status::Pending->value)->where('shipping_requests.is_user_confirmed', false));
+            }),
+            'active' => $query->whereIn('shipping_requests.status', $statuses([Status::BookingConfirmed, Status::PickedUp, Status::InTransit, Status::InProgress])),
+            'done' => $query->whereIn('shipping_requests.status', $statuses([Status::Delivered, Status::Completed])),
+            'closed' => $query->whereIn('shipping_requests.status', $statuses([Status::Canceled, Status::Unavailable])),
+            default => $query,
+        };
+    }
+
+    public function groupCounts(): array
+    {
+        $counts = ['' => ShippingRequest::count()];
+        foreach (self::GROUPS as $group) {
+            $counts[$group] = $this->applyGroup(ShippingRequest::query(), $group)->count();
+        }
+
+        return $counts;
     }
 
     public function show($id)

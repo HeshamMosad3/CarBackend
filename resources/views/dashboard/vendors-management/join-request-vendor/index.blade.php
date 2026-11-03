@@ -1,128 +1,56 @@
 @extends('dashboard.layouts.app')
-@section('title', 'طلبات الإنظمام')
+@section('title', 'طلبات الانضمام')
 @section('content')
-    <main class="app-main">
-        <div class="app-content-header py-2">
-            <div class="container-fluid">
-                <div class="row">
-                    <div class="col-sm-6">
-                        <ol class="breadcrumb float-sm-start">
-                            <li class="breadcrumb-item"><a href="{{ route('dashboard') }}">الرئيسية</a></li>
-                            <li class="breadcrumb-item active" aria-current="page">
-                                طلبات إنظمام الجديدة
-                            </li>
-                        </ol>
-                    </div>
-                </div>
-            </div>
+    <x-dash.page-header title="طلبات الانضمام" subtitle="شركات وورش سجّلت وتنتظر المراجعة. افتح الطلب لمراجعة السجل التجاري ثم اقبله أو ارفضه."
+        :crumbs="['الشركات' => route('dashboard.vendors-management.vendors.index'), 'طلبات الانضمام' => null]" />
+
+    <div class="app-content">
+        <div class="card table-card">
+            <table class="table table-hover w-100" id="datatableID">
+                <thead>
+                    <tr>
+                        <th>الشركة</th>
+                        <th>رقم الجوال</th>
+                        <th>السجل التجاري</th>
+                        <th>تاريخ الطلب</th>
+                        <th class="text-end"></th>
+                    </tr>
+                </thead>
+            </table>
         </div>
-        <div class="app-content">
-            <div class="container-fluid">
-                <div class="card card-primary card-outline mb-4 mt-1">
-                    <div class="card-header py-2">
-                        <div class="card-title">طلبات إنظمام الجديدة</div>
-                    </div>
-                    <div class="card-body">
-                        <div class="table-responsive mt-2" style="padding-bottom: 120px;">
-                            <table class="table table-hover nowrap " id="datatableID"
-                                style="width:100%; padding-bottom: 100px;">
-                                <thead>
-                                    <tr>
-                                        <th class="text-center">#</th>
-                                        <th class="text-center">رقم الشركة</th>
-                                        <th class="text-center">إسم الشركة</th>
-                                        <th class="text-center">رقم السجل</th>
-                                        <th class="text-center">صورة الشعار</th>
-                                        <th class="text-center">تاريخ الطلب</th>
-                                        <th class="text-center"></th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </main>
+    </div>
 @endsection
 
 @push('my-java-script')
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    @include('dashboard.included.toast-message')
-    @include('shared.show-alert-validation-error')
     <script>
-        $(document).ready(function() {
-            var _columns = eval(
-                '[{"columns" : [{"data": "id", "className": "text-center align-middle"}, {"data": "phone", "className": "text-center align-middle"}, {"data": "company_name_ar", "className": "text-center align-middle"}, {"data": "commercial_record", "className": "text-center align-middle"}]}]'
-            );
-            _columns[0].columns.push({
-                "data": null,
-                "name": "logo",
-                "className": "text-center align-middle",
-                "render": function(data, type, row, meta) {
-                    return data.logo ? '<img src="' + baseUrl + 'uploads/' + data.logo +
-                        '" style="width: 55px; height: 50px;" class="rounded-circle">' : '<img src="' +
-                        baseUrl +
-                        'assets/dashboard/images/img_user.gif" style="width: 55px; height: 50px;" class="rounded-circle">';
-                }
-            });
-            _columns[0].columns.push({
-                "data": null,
-                "name": "created_at",
-                "className": "text-center align-middle",
-                "render": function(data, type, row, meta) {
-                    return data.member_since;
-                }
-            });
+        $(function() {
+            const showUrl = @json(url('dashboard/vendors-management/join-requests/show')) + '/';
+            const deleteUrl = @json(url('dashboard/vendors-management/join-requests/delete')) + '/';
 
-            _columns[0].columns.push({
-                "data": null,
-                "orderable": false,
-                "className": "text-center align-middle",
-                "render": function(data, type, row, meta) {
-                    var text =
-                        '<div class="dropdown dropdown-action mx-3"><a  class="dropdown dropdown-toggle action-icon" data-bs-toggle="dropdown" href="javascript:void(0)" aria-expanded="false"><i class="fa-solid fa-ellipsis-vertical fs-4 fw-bold"></i></a><div class="dropdown-menu">';
-
-                    text += '<a href="' +
-                        baseUrl + 'dashboard/vendors-management/join-requests/show/' + data.id +
-                        '" class="dropdown-item"><i class="fa-solid fa-eye me-2 color-hint"></i>مشاهدة</a>';
-
-                    text += '<a id="deleteActionDropdownId" data-id="' + data.id + '" data-action="' +
-                        baseUrl + 'dashboard/vendors-management/join-requests/delete/' + data.id +
-                        '" class="dropdown-item mt-1" href="javascript:void(0)"><i class="fa-solid fa-trash-can me-2 color-hint"></i>حذف</a>';
-
-                    return text += '</div></div>';
-                }
-            });
-            let myDatatable = customDatatable({
-                url: '{{ 'dashboard/vendors-management/join-requests' }}',
-                columns: _columns
-            });
-
-            $(document).on('click', 'a#deleteActionDropdownId', function(e) {
-                e.preventDefault();
-                var dataDelete = $(this).data('id');
-                var myUrl = $(this).data('action');
-                swalAlertDeleteConfirm({
-                    isConfirmed: function() {
-                        deleteDataAjax({
-                            url: myUrl,
-                            success: function(res) {
-                                if (res.success) {
-                                    window.location.reload();
-                                } else {
-                                    swalToast({
-                                        title: res.message,
-                                        icon: 'error'
-                                    });
-                                }
-                            }
-                        });
+            dashTable({
+                url: @json(route('dashboard.vendors-management.join-requests.index')),
+                searchPlaceholder: 'ابحث باسم الشركة أو الجوال...',
+                emptyTable: 'لا توجد طلبات انضمام بانتظار المراجعة 🎉',
+                order: [[3, 'asc']],
+                rowUrl: row => showUrl + row.id,
+                columns: [{
+                        data: 'company_name_ar',
+                        render: (d, t, row) => '<div class="entity">' + avatar(d, uploadUrl(row.logo)) +
+                            '<div class="min-w-0"><a href="' + showUrl + row.id + '" class="cell-title">' + orDash(d) + '</a><div class="cell-sub">رقم ' + esc(row.id) + '</div></div></div>'
+                    },
+                    { data: 'phone', orderable: false, render: d => d ? '<span class="ltr">' + esc(d) + '</span>' : orDash(d) },
+                    { data: 'commercial_record', render: d => d ? '<span class="ltr num">' + esc(d) + '</span>' : orDash(d) },
+                    { data: 'member_since', render: d => fmtDate(d) },
+                    {
+                        data: null,
+                        orderable: false,
+                        className: 'text-end',
+                        render: (d, t, row) => '<div class="row-actions"><a href="' + showUrl + row.id + '" class="btn btn-sm btn-primary">مراجعة الطلب</a>' +
+                            rowActions({ del: deleteUrl + row.id, delConfirm: 'سيتم حذف طلب الانضمام وحساب الشركة نهائياً. لإبلاغ الشركة بالسبب استخدم «رفض» من صفحة الطلب.' })
+                            .replace('<div class="row-actions">', '')
                     }
-                });
+                ]
             });
-        })
+        });
     </script>
 @endpush

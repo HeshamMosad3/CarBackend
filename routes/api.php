@@ -29,6 +29,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
 
     Route::prefix('/shipping')->controller(App\Http\Controllers\API\V1\Shared\ShippingController::class)->group(function () {
         Route::get('/store-address', 'storeAddress');
+        Route::get('/pending-actions', 'pendingActions');
         Route::get('/by-response/{requestId}/{responseId}', 'showByResponse')->whereNumber(['requestId', 'responseId']);
         Route::post('/{id}/approve', 'approve')->whereNumber('id');
         Route::post('/{id}/cancel', 'cancel')->whereNumber('id');

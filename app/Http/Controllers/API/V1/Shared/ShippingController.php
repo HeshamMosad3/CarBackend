@@ -45,6 +45,89 @@ class ShippingController extends Controller
         return buildApiResponseHelper(true, 'تم التحميل بنجاح', $this->payload($shippingRequest, $role));
     }
 
+    /**
+     * Shipments waiting on the customer to do something (approve, complete the data, pay).
+     * Steps that only wait on the admin, the carrier or the system are left out on purpose:
+     * there is nothing for the user to do there, and the status screen already covers them.
+     */
+    public function pendingActions()
+    {
+        $me = getCurrUserIdHelper();
+
+        $rows = ShippingRequest::query()
+            ->join('request_customers', 'request_customers.id', '=', 'shipping_requests.request_id')
+            ->where('request_customers.user_id', $me)
+            ->whereIn('shipping_requests.status', [
+                Status::AwaitingCustomerApproval->value,
+                Status::AwaitingCustomerData->value,
+                Status::AwaitingPayment->value,
+            ])
+            ->select('shipping_requests.*')
+            ->orderByDesc('shipping_requests.id')
+            ->get();
+
+        $items = [];
+        $seen = [];
+        foreach ($rows as $sr) {
+            $key = $sr->request_id . ':' . $sr->response_id;
+            if (isset($seen[$key])) {
+                continue;
+            }
+
+            $action = match ($sr->status) {
+                Status::AwaitingCustomerApproval => ['approve', 'وافق على طلب الشحن'],
+                Status::AwaitingCustomerData => ['complete_data', 'أكمل بيانات الشحن'],
+                Status::AwaitingPayment => $this->canPay($sr) ? ['pay', 'ادفع رسوم الشحن'] : null,
+                default => null,
+            };
+            if (!$action) {
+                continue;
+            }
+
+            $conversation = DB::table('conversations')
+                ->leftJoin('vendors', function ($join) {
+                    $join->on('vendors.user_id', '=', 'conversations.vendor_id')
+                        ->orOn('vendors.id', '=', 'conversations.vendor_id');
+                })
+                ->leftJoin('users as vendor_user', function ($join) {
+                    $join->on('vendor_user.id', '=', 'vendors.user_id')
+                        ->orOn('vendor_user.id', '=', 'conversations.vendor_id');
+                })
+                ->where('conversations.user_id', $me)
+                ->where('conversations.request_id', $sr->request_id)
+                ->where('conversations.response_id', $sr->response_id)
+                ->orderByDesc('conversations.id')
+                ->select([
+                    'conversations.id',
+                    'conversations.vendor_id',
+                    DB::raw('COALESCE(NULLIF(NULLIF(vendors.company_name_ar, "غير محدد"), ""), vendor_user.name, "غير محدد") as receiver_name'),
+                    DB::raw('vendor_user.logo as receiver_logo'),
+                ])
+                ->first();
+
+            // The action happens inside the chat, so a shipment without a conversation has nowhere to go.
+            if (!$conversation) {
+                continue;
+            }
+
+            $seen[$key] = true;
+            $items[] = [
+                'shipping_id' => $sr->id,
+                'status' => $sr->status->value,
+                'action' => $action[0],
+                'action_text' => $action[1],
+                'conversation_id' => $conversation->id,
+                'request_id' => $sr->request_id,
+                'response_id' => $sr->response_id,
+                'vendor_id' => $conversation->vendor_id,
+                'receiver_name' => $conversation->receiver_name,
+                'receiver_logo' => $conversation->receiver_logo,
+            ];
+        }
+
+        return buildApiResponseHelper(true, 'تم التحميل بنجاح', ['items' => $items]);
+    }
+
     /** Customer opened the "approve shipping" form: records that the data is now being completed. */
     public function approve(int $id)
     {
@@ -75,6 +158,11 @@ class ShippingController extends Controller
     public function pay(int $id)
     {
         return $this->asCustomer($id, function (ShippingRequest $sr) {
+            // A second tap on "pay" after it already went through is not an error.
+            if ($sr->payment_status === ShippingPaymentStatusEnum::Paid->value) {
+                return buildApiResponseHelper(true, 'تم دفع رسوم الشحن بنجاح', ['paid' => true] + $this->payload($sr, 'customer'));
+            }
+
             if (!$this->canPay($sr)) {
                 return buildApiResponseHelper(false, 'لا يمكن دفع رسوم الشحن في الوقت الحالي');
             }
@@ -82,6 +170,10 @@ class ShippingController extends Controller
             $checkout = $this->gateway->checkout($sr);
             if ($checkout === null) {
                 return buildApiResponseHelper(false, 'الدفع الإلكتروني غير متاح حالياً');
+            }
+
+            if ($checkout['paid'] ?? false) {
+                return buildApiResponseHelper(true, 'تمت عملية الدفع بنجاح', $checkout + $this->payload($sr->fresh(), 'customer'));
             }
 
             return buildApiResponseHelper(true, 'تم بدء عملية الدفع', $checkout);

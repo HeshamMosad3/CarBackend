@@ -24,7 +24,9 @@ class ShippingRequestManagementController extends Controller
         if ($request->ajax()) {
             return $this->service->index($request);
         }
-        return view('dashboard.shipping-request-management.index');
+        return view('dashboard.shipping-request-management.index', [
+            'groupCounts' => $this->service->groupCounts(),
+        ]);
     }
 
     public function updateStatus(Request $request)
@@ -70,11 +72,11 @@ class ShippingRequestManagementController extends Controller
 
         $result = $this->service->show($id);
         $shippingRequest = $result['shippingRequest'] ?? null;
-        $cheapestCompany = $result['cheapestCompany'] ?? null;
+        $deliveryCompanies = $result['deliveryCompanies'] ?? [];
         $parties = $result['parties'] ?? null;
         $needsRefund = $shippingRequest ? $this->workflow->needsRefund($shippingRequest) : false;
 
-        return view('dashboard.shipping-request-management.show', compact('shippingRequest', 'cheapestCompany', 'parties', 'needsRefund'));
+        return view('dashboard.shipping-request-management.show', compact('shippingRequest', 'deliveryCompanies', 'parties', 'needsRefund'));
     }
 
     /** Moves a new-flow shipment to its next status. The rules live in ShippingWorkflowService. */
@@ -161,7 +163,7 @@ class ShippingRequestManagementController extends Controller
             return back()->with('error', $e->getMessage());
         }
 
-        return redirect()->route('dashboard.shipping-request-management.index')->with('success', 'تم إنشاء طلب الشحن بنجاح');
+        return back()->with('success', 'تم إنشاء طلب الشحن لدى OTO بنجاح');
     }
 
     public function delete(Request $request, $id)
@@ -174,9 +176,9 @@ class ShippingRequestManagementController extends Controller
             return response()->json($validator->errors(), 422);
         }
 
-        $requestCustomer = ShippingRequest::find($request->id);
+        $shippingRequest = ShippingRequest::find($id);
 
-        return $requestCustomer->delete()
+        return $shippingRequest->delete()
             ? buildApiResponseHelper(true, 'تم الحذف  بنجاح')
             : buildApiResponseHelper(false, 'لم يتم الحذف  بنجاح');
     }

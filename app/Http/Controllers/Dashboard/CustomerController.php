@@ -36,6 +36,7 @@ class CustomerController extends Controller
                     'users.phone',
                     'users.logo',
                     'users.status',
+                    'users.created_at',
                 );
             $records = $this->paginateRecordsForDatatables($request, $query);
 

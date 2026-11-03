@@ -23,7 +23,7 @@ class ShippingRequestManagementService extends BaseService
         $searchValue = $request->input('search.value');
 
         $recordsCount =  $this->repo->getTotalRecordsCount(ShippingRequest::class);
-        $recordsCountwithFilter = $this->repo->recordsCountShippingRequestWithFilter($searchValue);
+        $recordsCountwithFilter = $this->repo->recordsCountShippingRequestWithFilter($searchValue, $request);
         $records = $this->repo->index($request, $searchValue);
 
         return $this->repo->formatResponseDataTables(
@@ -33,6 +33,11 @@ class ShippingRequestManagementService extends BaseService
             records: $records
         );
     }
+    public function groupCounts(): array
+    {
+        return $this->repo->groupCounts();
+    }
+
     public function show($id)
     {
         $this->validate(['id' => $id], [
@@ -41,9 +46,9 @@ class ShippingRequestManagementService extends BaseService
 
         $shippingRequest = $this->repo->show($id);
         $accessToken = $this->otoServiceUtils->getAccessTokenOTO();
-        $cheapestCompany = null;
-        // OTO's cheapest company: the action source for legacy shipments, and a price reference for the
-        // admin while a new-flow shipment is being reviewed or quoted.
+        $deliveryCompanies = [];
+        // All of OTO's delivery options (cheapest first): the admin picks one to book for legacy
+        // shipments, and uses them as a price reference while a new-flow shipment is reviewed or quoted.
         $otoLookupStatuses = [
             StatusShippingRequestEnum::Pending,
             StatusShippingRequestEnum::ReadyForReview,
@@ -51,7 +56,7 @@ class ShippingRequestManagementService extends BaseService
             StatusShippingRequestEnum::Paid, // needed to offer the optional OTO booking once the customer paid
         ];
         if ($shippingRequest->is_user_confirmed && in_array($shippingRequest->status, $otoLookupStatuses, true)) {
-            $cheapestCompany = $this->otoServiceUtils->checkDeliveryFeeAndGetCheapest(
+            $deliveryCompanies = $this->otoServiceUtils->checkDeliveryFeeAndGetCompanies(
                 accessToken: $accessToken,
                 originCity: $shippingRequest->city_origin_vendor,
                 destinationCity: $shippingRequest->city_origin_dimensions,
@@ -61,11 +66,9 @@ class ShippingRequestManagementService extends BaseService
                 weight: $shippingRequest->weight
             );
         }
-        Log::info($cheapestCompany);
-
         return [
             'shippingRequest' => $shippingRequest,
-            'cheapestCompany' => $cheapestCompany,
+            'deliveryCompanies' => $deliveryCompanies,
             'parties' => $this->repo->getParties($shippingRequest),
         ];
     }

@@ -25,9 +25,12 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Swap this binding for the real gateway implementation when one is added.
+        // SHIPPING_PAYMENT_DEMO=true makes every shipping payment succeed without charging anything.
         $this->app->bind(
             \App\Contracts\ShippingPaymentGateway::class,
-            \App\Services\Payments\NullShippingPaymentGateway::class
+            filter_var(env('SHIPPING_PAYMENT_DEMO', false), FILTER_VALIDATE_BOOLEAN)
+                ? \App\Services\Payments\DemoShippingPaymentGateway::class
+                : \App\Services\Payments\NullShippingPaymentGateway::class
         );
     }
 
