@@ -9,8 +9,11 @@ use App\Exceptions\CustomResponseException;
 use App\Models\ShippingRequest;
 use App\Traits\NotificationsTrait;
 use App\Utils\ConfigUtils;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -71,6 +74,36 @@ class ShippingWorkflowService
 
             return $fresh;
         });
+    }
+
+    /**
+     * Stores the carrier's waybill (image or PDF) for a paid shipment that is still on its way,
+     * replacing the previous one, and tells both parties it is available. The caller validates the file type.
+     */
+    public function attachWaybill(ShippingRequest $shippingRequest, UploadedFile $file): ShippingRequest
+    {
+        $fresh = ShippingRequest::findOrFail($shippingRequest->id);
+
+        $attachable = [Status::BookingConfirmed, Status::PickedUp, Status::InTransit];
+        if (!in_array($fresh->status, $attachable, true)) {
+            throw new CustomResponseException(code: 422, message: 'تُرفع البوليصة بعد تأكيد الحجز وقبل تسليم الشحنة');
+        }
+
+        // The extension comes from the file's real content, never from the name the client sent.
+        $extension = $file->guessExtension() === 'jpeg' ? 'jpg' : $file->guessExtension();
+        $name = Str::uuid() . '.' . $extension;
+        Storage::disk('local')->putFileAs(ShippingRequest::WAYBILL_DIR, $file, $name);
+
+        $previous = $fresh->waybill_file;
+        $fresh->update(['waybill_file' => $name]);
+
+        if ($previous) {
+            Storage::disk('local')->delete(ShippingRequest::WAYBILL_DIR . '/' . $previous);
+        }
+
+        $this->notifyBoth($fresh, 'تمت إضافة بوليصة الشحن', 'أصبحت بوليصة شحن الطلب رقم ( ' . $fresh->request_id . ' ) متاحة في شاشة الشحنة');
+
+        return $fresh;
     }
 
     /**
