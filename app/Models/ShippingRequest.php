@@ -57,7 +57,21 @@ class ShippingRequest extends Model
         'cancel_reason',
         'status_changed_at',
         'active_key',
+        'waybill_file',
     ];
+
+    /** Private-disk folder holding the carrier waybills. They are only ever served through authenticated routes. */
+    public const WAYBILL_DIR = 'shipping-waybills';
+
+    /** 'pdf', 'image', or null when no waybill was uploaded. */
+    public function waybillType(): ?string
+    {
+        if (!$this->waybill_file) {
+            return null;
+        }
+
+        return strtolower(pathinfo($this->waybill_file, PATHINFO_EXTENSION)) === 'pdf' ? 'pdf' : 'image';
+    }
 
     protected static function booted(): void
     {

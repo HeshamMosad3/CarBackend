@@ -9,11 +9,15 @@ use App\Http\Services\Dashboard\ShippingRequestManagement\ShippingRequestManagem
 use App\Http\Services\Shared\ShippingWorkflowService;
 use App\Models\ShippingRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class ShippingRequestManagementController extends Controller
 {
+    /** Waybills are the carrier's label as a photo/scan or a PDF; the type is checked from the file's content. */
+    private const WAYBILL_RULES = ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'];
+
     public function __construct(
         protected ShippingRequestManagementService $service,
         protected ShippingWorkflowService $workflow,
@@ -105,9 +109,13 @@ class ShippingRequestManagementController extends Controller
             'tracking_number' => ['nullable', 'string', 'max:255'],
             'pickup_details' => ['nullable', 'string', 'max:2000'],
             'cancel_reason' => ['nullable', 'string', 'max:255'],
+<<<<<<< HEAD
             'pickup_method' => ['nullable', Rule::in(\App\Support\Shipping\PickupMethod::ALL)],
             'oto_delivery_option_id' => ['nullable', 'string', 'max:40'],
             'carrier_pickup_support' => ['nullable', 'string', 'max:30'],
+=======
+            'waybill' => self::WAYBILL_RULES,
+>>>>>>> c39803df93181c568cd255b08df53c87c0623763
         ]);
 
         if ($validator->fails()) {
@@ -128,12 +136,50 @@ class ShippingRequestManagementController extends Controller
         $attributes = array_filter($request->only($allowed), fn ($v) => $v !== null && $v !== '');
 
         try {
-            $this->workflow->transition($shippingRequest, $to, $attributes);
+            $shippingRequest = $this->workflow->transition($shippingRequest, $to, $attributes);
+
+            // The waybill can come with the booking itself.
+            if ($to === StatusShippingRequestEnum::BookingConfirmed && $request->hasFile('waybill')) {
+                $this->workflow->attachWaybill($shippingRequest, $request->file('waybill'));
+            }
         } catch (CustomResponseException $e) {
             return back()->with('error', $e->getMessage());
         }
 
         return back()->with('success', StatusShippingRequestEnum::trans($to->value));
+    }
+
+    /** Upload or replace the carrier's waybill (image or PDF) after the booking. */
+    public function uploadWaybill(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), ['waybill' => array_merge(['required'], self::WAYBILL_RULES)]);
+        if ($validator->fails()) {
+            return back()->with('error', $validator->errors()->first());
+        }
+
+        try {
+            $this->workflow->attachWaybill(ShippingRequest::findOrFail($id), $request->file('waybill'));
+        } catch (CustomResponseException $e) {
+            return back()->with('error', $e->getMessage());
+        }
+
+        return back()->with('success', 'تم رفع بوليصة الشحن');
+    }
+
+    /** Lets the admin open the uploaded waybill. */
+    public function showWaybill($id)
+    {
+        $shippingRequest = ShippingRequest::findOrFail($id);
+        $path = $shippingRequest->waybill_file
+            ? Storage::disk('local')->path(ShippingRequest::WAYBILL_DIR . '/' . $shippingRequest->waybill_file)
+            : null;
+
+        abort_unless($path && is_file($path), 404);
+
+        return response()->file($path, [
+            'Content-Type' => mime_content_type($path) ?: 'application/octet-stream',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
     }
 
     public function refund(Request $request, $id)

@@ -34,6 +34,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         Route::post('/{id}/approve', 'approve')->whereNumber('id');
         Route::post('/{id}/cancel', 'cancel')->whereNumber('id');
         Route::post('/{id}/pay', 'pay')->whereNumber('id');
+        Route::get('/{id}/waybill', 'waybill')->whereNumber('id');
     });
 
     Route::prefix('/notifications')->group(function () {

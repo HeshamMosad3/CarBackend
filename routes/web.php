@@ -170,6 +170,8 @@ Route::prefix('/dashboard')->middleware(['auth:admin', 'role:Super-Admin|admin',
         Route::post('/transition/{id}', 'transition')->name('dashboard.shipping-request-management.transition');
         Route::post('/refund/{id}', 'refund')->name('dashboard.shipping-request-management.refund');
         Route::post('/notes/{id}', 'saveNotes')->name('dashboard.shipping-request-management.notes');
+        Route::post('/waybill/{id}', 'uploadWaybill')->name('dashboard.shipping-request-management.waybill.upload');
+        Route::get('/waybill/{id}', 'showWaybill')->name('dashboard.shipping-request-management.waybill.show');
         Route::delete('/delete/{id}', 'delete')->name('dashboard.shipping-request-management.delete');
     });
     Route::prefix('/complaint-management')->controller(App\Http\Controllers\Dashboard\ComplaintManagement\ComplaintManagemntController::class)->group(function () {

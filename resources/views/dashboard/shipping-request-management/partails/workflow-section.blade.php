@@ -93,6 +93,7 @@
 
             @case(ShippingStatus::Paid)
                 <div class="action-panel">
+<<<<<<< HEAD
                     <div class="action-title">دفع الزبون — أكّد الشحن</div>
                     <div class="action-hint">اختر الشركة من القائمة أدناه فيُعبّأ اسمها وطريقة التسليم تلقائياً. يمكنك أيضاً الحجز مباشرة لدى OTO من نفس القائمة.</div>
                     @php
@@ -100,6 +101,11 @@
                         $methodNow = $shippingRequest->pickup_method;
                     @endphp
                     <form method="POST" action="{{ $transitionUrl }}">
+=======
+                    <div class="action-title">دفع الزبون — احجز الشحنة</div>
+                    <div class="action-hint">سجّل شركة الشحن ورقم البوليصة. يمكنك أيضاً الحجز مباشرة لدى OTO من القسم أدناه.</div>
+                    <form method="POST" action="{{ $transitionUrl }}" enctype="multipart/form-data">
+>>>>>>> c39803df93181c568cd255b08df53c87c0623763
                         @csrf
                         <input type="hidden" name="to" value="BookingConfirmed">
                         <input type="hidden" name="oto_delivery_option_id" id="oto_delivery_option_id" value="{{ $shippingRequest->oto_delivery_option_id }}">
@@ -116,7 +122,15 @@
                                     maxlength="255" value="{{ $shippingRequest->tracking_number ?: $shippingRequest->oto_id }}">
                             </div>
                         </div>
+<<<<<<< HEAD
 
+=======
+                        <div class="mb-2">
+                            <label class="form-label" for="waybill">بوليصة الشحن (صورة أو PDF) <span class="text-muted small">- تظهر للزبون والتاجر ويقدرون يحمّلونها</span></label>
+                            <input type="file" name="waybill" id="waybill" class="form-control" accept="image/jpeg,image/png,image/webp,application/pdf">
+                            <div class="form-text">اختيارية الآن، ويمكنك رفعها لاحقاً. الحد الأقصى 5 ميجابايت.</div>
+                        </div>
+>>>>>>> c39803df93181c568cd255b08df53c87c0623763
                         <div class="mb-3">
                             <div class="form-label">كيف تصل الشحنة إلى الشركة؟ <span class="text-danger">*</span></div>
                             <div class="row g-2">
@@ -200,6 +214,30 @@
                 </div>
             @break
         @endswitch
+
+        {{-- The carrier's waybill: shown to the customer and the vendor in the app once uploaded --}}
+        @if (in_array($status, [ShippingStatus::BookingConfirmed, ShippingStatus::PickedUp, ShippingStatus::InTransit], true))
+            <div class="action-panel">
+                <div class="action-title"><i class="bi bi-file-earmark-text"></i> بوليصة الشحن</div>
+                @if ($shippingRequest->waybill_file)
+                    <div class="action-hint">
+                        مرفوعة وظاهرة للزبون والتاجر في التطبيق.
+                        <a href="{{ route('dashboard.shipping-request-management.waybill.show', $shippingRequest->id) }}" target="_blank" rel="noopener">
+                            عرض البوليصة ({{ $shippingRequest->waybillType() === 'pdf' ? 'PDF' : 'صورة' }})
+                        </a>
+                    </div>
+                @else
+                    <div class="action-hint">لم تُرفع بوليصة بعد. ارفعها ليتمكن الزبون والتاجر من عرضها وتحميلها من التطبيق.</div>
+                @endif
+                <form method="POST" action="{{ route('dashboard.shipping-request-management.waybill.upload', $shippingRequest->id) }}"
+                    enctype="multipart/form-data" class="d-flex gap-2 flex-wrap">
+                    @csrf
+                    <input type="file" name="waybill" class="form-control flex-grow-1" style="max-width: 360px" required
+                        accept="image/jpeg,image/png,image/webp,application/pdf">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-upload"></i> {{ $shippingRequest->waybill_file ? 'استبدال البوليصة' : 'رفع البوليصة' }}</button>
+                </form>
+            </div>
+        @endif
 
         @if ($status->canTransitionTo(ShippingStatus::Unavailable) || $status->canTransitionTo(ShippingStatus::Canceled))
             <details class="border rounded-3 p-3" style="border-color: var(--dash-border) !important">

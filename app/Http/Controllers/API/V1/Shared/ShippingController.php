@@ -10,7 +10,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Services\Shared\ShippingWorkflowService;
 use App\Models\ShippingRequest;
 use App\Models\Vendor;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class ShippingController extends Controller
 {
@@ -180,6 +182,34 @@ class ShippingController extends Controller
         });
     }
 
+    /**
+     * The carrier's waybill, streamed from the private disk. Only the customer and the vendor of the
+     * shipment may open it. `?download=1` makes the response an attachment instead of inline.
+     */
+    public function waybill(Request $request, int $id)
+    {
+        $shippingRequest = ShippingRequest::find($id);
+        if (!$shippingRequest || !$this->roleOf($shippingRequest)) {
+            return buildApiResponseHelper(false, 'لا يوجد طلب شحن');
+        }
+
+        $path = $shippingRequest->waybill_file
+            ? Storage::disk('local')->path(ShippingRequest::WAYBILL_DIR . '/' . $shippingRequest->waybill_file)
+            : null;
+        if (!$path || !is_file($path)) {
+            return buildApiResponseHelper(false, 'لا توجد بوليصة لهذه الشحنة');
+        }
+
+        $extension = pathinfo($path, PATHINFO_EXTENSION);
+
+        return response()->file($path, [
+            'Content-Type' => mime_content_type($path) ?: 'application/octet-stream',
+            'Content-Disposition' => ($request->boolean('download') ? 'attachment' : 'inline') . '; filename="waybill-' . $shippingRequest->id . '.' . $extension . '"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
     /** The vendor's saved pickup point, used to pre-fill the shipping form. */
     public function storeAddress()
     {
@@ -257,6 +287,10 @@ class ShippingController extends Controller
             'tracking_number' => $sr->tracking_number,
             'cancel_reason' => $sr->cancel_reason,
             'status_changed_at' => $sr->status_changed_at?->format('Y-m-d H:i'),
+            'has_waybill' => (bool) $sr->waybill_file,
+            'waybill_type' => $sr->waybillType(),
+            // Changes whenever the waybill is replaced, so the app doesn't keep showing the old picture.
+            'waybill_version' => $sr->waybill_file ? substr(md5($sr->waybill_file), 0, 8) : null,
         ];
 
         if ($role === 'customer') {

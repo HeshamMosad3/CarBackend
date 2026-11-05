@@ -530,7 +530,10 @@ div.dt-container .dt-search input {
     background: var(--dash-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%238d97ab' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0'/%3E%3C/svg%3E") no-repeat right .75rem center;
 }
 div.dt-container .dt-search label { display: none; }
-div.dt-container .dt-length select { width: auto; display: inline-block; margin-inline-end: .4rem; }
+div.dt-container .dt-length select { width: auto; min-width: 5rem; display: inline-block; margin-inline-end: .4rem; }
+/* DataTables sets padding: 4px on select.dt-input, which removes the room Bootstrap reserves for the dropdown
+   arrow and makes it sit on top of the number. Keep the arrow's room on the end side (left in RTL). */
+div.dt-container .dt-length select.dt-input { padding: .375rem .75rem !important; padding-inline-end: 2.25rem !important; }
 div.dt-container .dt-info { color: var(--dash-muted); padding-top: .4rem !important; }
 div.dt-container .dt-paging .pagination { margin: 0; gap: .25rem; }
 div.dt-container .page-link { border-radius: 8px !important; border: 1px solid var(--dash-border); color: var(--dash-text); background: var(--dash-surface); min-width: 34px; text-align: center; }
@@ -541,7 +544,16 @@ div.dt-processing > div:last-child > div { background: var(--dash-primary) !impo
 table.dataTable td.dt-empty { padding: 3rem 1rem !important; color: var(--dash-muted); }
 table.dataTable thead > tr > th.dt-orderable-asc span.dt-column-order,
 table.dataTable thead > tr > th.dt-orderable-desc span.dt-column-order { opacity: .5; }
-table.dataTable th.dt-type-numeric, table.dataTable td.dt-type-numeric { text-align: start !important; }
+/* DataTables hard-codes physical alignment (headers left, dates/numbers right). The dashboard is RTL, so
+   align headers and cells to the logical start: each title then sits right over its values. */
+table.dataTable thead > tr > th:not(.text-center):not(.text-end),
+table.dataTable thead > tr > td:not(.text-center):not(.text-end),
+table.dataTable th.dt-type-numeric, table.dataTable td.dt-type-numeric,
+table.dataTable th.dt-type-date, table.dataTable td.dt-type-date { text-align: start !important; }
+/* Sort arrows go to the end side (left in RTL) so they don't push the title away from its values. */
+table.dataTable thead > tr > th.dt-orderable-asc, table.dataTable thead > tr > th.dt-orderable-desc,
+table.dataTable thead > tr > th.dt-ordering-asc, table.dataTable thead > tr > th.dt-ordering-desc { padding-right: 1rem !important; padding-left: 30px !important; }
+table.dataTable thead > tr > th span.dt-column-order { right: auto !important; left: 12px; }
 table.dataTable > tbody > tr.selected > * { box-shadow: none; }
 
 .filter-bar { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
