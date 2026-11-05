@@ -124,6 +124,7 @@
     <div class="card-body">
         <dl class="detail-list">
             <x-dash.detail label="شركة الشحن">{{ $shippingRequest->carrier_name }}</x-dash.detail>
+            <x-dash.detail label="طريقة التسليم للشركة">{{ \App\Support\Shipping\PickupMethod::label($shippingRequest->pickup_method) }}</x-dash.detail>
             <x-dash.detail label="رقم التتبع" class="ltr text-end">{{ $shippingRequest->tracking_number ?: $shippingRequest->oto_id }}</x-dash.detail>
             @if ($shippingRequest->pickup_details)
                 <x-dash.detail label="بيانات الاستلام" style="white-space: pre-line">{{ $shippingRequest->pickup_details }}</x-dash.detail>

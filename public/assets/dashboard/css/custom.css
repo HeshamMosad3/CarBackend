@@ -727,3 +727,105 @@ table.dataTable > tbody > tr.selected > * { box-shadow: none; }
     .page-actions .btn { flex: 1; }
     .attention-menu { width: calc(100vw - 2rem); }
 }
+
+/* ==========================================================================
+   Live dashboard (see js/live.js)
+   ========================================================================== */
+
+/* Connection pill in the header */
+.live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .25rem .7rem;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 700;
+    background: var(--dash-surface-2);
+    color: var(--dash-muted);
+    border: 1px solid var(--dash-border);
+    white-space: nowrap;
+}
+.live-pill .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.live-pill.is-live { color: var(--bs-success); background: rgba(var(--bs-success-rgb), .1); border-color: rgba(var(--bs-success-rgb), .25); }
+.live-pill.is-live .dot { animation: live-pulse 1.8s ease-out infinite; }
+.live-pill.is-polling { color: #b7791f; background: rgba(var(--bs-warning-rgb), .12); border-color: rgba(var(--bs-warning-rgb), .3); }
+.live-pill.is-offline { color: var(--bs-danger); background: rgba(var(--bs-danger-rgb), .1); border-color: rgba(var(--bs-danger-rgb), .25); }
+[data-bs-theme="dark"] .live-pill.is-polling { color: #f6c453; }
+@keyframes live-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(var(--bs-success-rgb), .55); }
+    70% { box-shadow: 0 0 0 7px rgba(var(--bs-success-rgb), 0); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--bs-success-rgb), 0); }
+}
+
+/* "Allow browser notifications" bar */
+.live-banner {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    flex-wrap: wrap;
+    margin: 1rem 1.5rem 0;
+    padding: .85rem 1rem;
+    border-radius: var(--dash-radius);
+    border: 1px solid rgba(var(--dash-primary-rgb), .35);
+    background: var(--dash-primary-soft);
+}
+.live-banner .icon {
+    width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; flex-shrink: 0;
+    background: var(--dash-primary); color: #fff; font-size: 1.1rem;
+}
+@media (max-width: 575.98px) { .live-banner { margin: .75rem 1rem 0; } .live-banner .btn { flex: 1; } }
+
+/* Bell */
+.bell-ring { display: inline-block; transform-origin: 50% 0; animation: bell-ring 1.2s ease-in-out 2; color: var(--bs-danger); }
+@keyframes bell-ring {
+    0%, 100% { transform: rotate(0); }
+    10%, 30%, 50% { transform: rotate(14deg); }
+    20%, 40%, 60% { transform: rotate(-14deg); }
+    70% { transform: rotate(0); }
+}
+.alert-row .icon { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; flex-shrink: 0; }
+.live-controls .form-switch .form-check-input { width: 2.4em; height: 1.25em; cursor: pointer; }
+
+/* A part of the page that has just updated by itself */
+.live-flash { animation: live-flash 1.4s ease-out; }
+@keyframes live-flash {
+    0% { box-shadow: 0 0 0 3px rgba(var(--dash-primary-rgb), .35); background-color: rgba(var(--dash-primary-rgb), .05); }
+    100% { box-shadow: 0 0 0 0 rgba(var(--dash-primary-rgb), 0); background-color: transparent; }
+}
+
+/* Held-back update */
+.live-stale {
+    position: fixed;
+    bottom: 1.25rem;
+    inset-inline-start: 50%;
+    transform: translateX(50%);
+    z-index: 1090;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    padding: .55rem .6rem .55rem 1rem;
+    border-radius: 999px;
+    background: var(--dash-surface);
+    border: 1px solid var(--dash-border);
+    box-shadow: var(--dash-shadow-lg);
+    font-weight: 600;
+    font-size: .85rem;
+}
+@media (prefers-reduced-motion: reduce) {
+    .live-pill.is-live .dot, .bell-ring, .live-flash { animation: none; }
+}
+
+/* Shipping: how the parcel reaches the carrier (pick-up from the door / drop-off at a branch) */
+.method-option {
+    display: flex; align-items: center; gap: .75rem; cursor: pointer; height: 100%;
+    padding: .65rem .8rem; border: 1px solid var(--dash-border); border-radius: var(--dash-radius-sm);
+    background: var(--dash-surface); transition: border-color .15s, background .15s;
+}
+.method-option .icon {
+    width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; flex-shrink: 0;
+    background: var(--dash-surface-2); color: var(--dash-muted);
+}
+.method-option:has(input:checked) { border-color: var(--dash-primary); background: var(--dash-primary-soft); }
+.method-option:has(input:checked) .icon { background: var(--dash-primary); color: #fff; }
+.method-option.is-disabled { opacity: .45; cursor: not-allowed; }

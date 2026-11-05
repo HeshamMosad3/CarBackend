@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Notifications\Payloads\PushPayload;
 use App\Notifications\SendNotification;
 use Illuminate\Support\Str;
+// NotificationDestinationResolver lives in the same namespace as this service.
 
 /**
  * The single seam every notification call-site goes through: persist the DB
@@ -40,13 +41,27 @@ class NotificationDispatcherService extends BaseService
             $this->persist($userId, $title, $body, $category, $targetId, $notificationId);
         }
 
+        // Order updates are stored against the order (shipment / request id), but tapping one must open
+        // the right screen — e.g. the chat with its pay button — so the push carries that destination.
+        $pushTargetId = $targetId;
+        $pushParams = $params;
+        if (in_array($category, [NotificationCategoryEnum::ShipmentUpdate, NotificationCategoryEnum::RequestUpdate], true)) {
+            try {
+                $destination = app(NotificationDestinationResolver::class)->resolve($userId, $category->value, $targetId, $body);
+                $pushTargetId = $destination['target_id'] ?? $targetId;
+                $pushParams = array_merge($params, $destination['params']);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('[Notification] Destination lookup failed: ' . $e->getMessage());
+            }
+        }
+
         $payload = new PushPayload(
             recipientId: $userId,
             category: $category,
             title: $title,
             body: $body,
-            targetId: $targetId,
-            params: $params,
+            targetId: $pushTargetId,
+            params: $pushParams,
             notificationId: $notificationId,
         );
 

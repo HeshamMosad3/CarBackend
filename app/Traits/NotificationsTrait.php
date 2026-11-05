@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Enums\Notifications\NotificationCategoryEnum;
+use App\Http\Services\Shared\Notifications\NotificationDestinationResolver;
 use App\Http\Services\Shared\Notifications\NotificationDispatcherService;
 use Illuminate\Http\Request;
 
@@ -73,6 +74,8 @@ trait NotificationsTrait
             'conversations' => NotificationCategoryEnum::ChatMessage,
             'company_responses' => NotificationCategoryEnum::VendorResponse,
             'customer_requests' => NotificationCategoryEnum::NewRequest,
+            'shipment_update' => NotificationCategoryEnum::ShipmentUpdate,
+            'request_update' => NotificationCategoryEnum::RequestUpdate,
             default => NotificationCategoryEnum::Generic,
         };
     }
@@ -85,7 +88,9 @@ trait NotificationsTrait
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        $notifications->getCollection()->transform(function ($item) {
+        $resolver = app(NotificationDestinationResolver::class);
+
+        $notifications->getCollection()->transform(function ($item) use ($user, $resolver) {
             $data = $item->data;
 
             return [
@@ -94,6 +99,8 @@ trait NotificationsTrait
                 'body' => $data['body'] ?? null,
                 'category' => $item->category,
                 'target_id' => $item->target_id,
+                // Where tapping this notification should go (see NotificationDestinationResolver).
+                'destination' => $resolver->resolve((int) $user->id, $item->category, $item->target_id, $data['body'] ?? ''),
                 'read_at' => $item->read_at?->format('Y-m-d H:i'),
                 'created_at' => $item->created_at->format('Y-m-d H:i'),
             ];

@@ -40,6 +40,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         Route::get('/unread-counts', [App\Http\Controllers\API\NotificationBadgeController::class, 'unreadCounts']);
         Route::post('/mark-category-read', [App\Http\Controllers\API\NotificationBadgeController::class, 'markCategoryRead']);
         Route::post('/mark-entity-read', [App\Http\Controllers\API\NotificationBadgeController::class, 'markEntityRead']);
+        Route::post('/mark-all-read', [App\Http\Controllers\API\NotificationBadgeController::class, 'markAllRead']);
         Route::get('/', [App\Http\Controllers\API\V1\Shared\NotificationController::class, 'index']);
 
         Route::prefix('/devices')->controller(App\Http\Controllers\API\V1\Shared\Devices\UserDeviceController::class)->group(function () {

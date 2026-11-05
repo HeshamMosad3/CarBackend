@@ -44,6 +44,8 @@ class AppServiceProvider extends ServiceProvider
         Category::observe(CategoryObserver::class);
         CategoryHasBrandField::observe(CategoryHasBrandFieldObserver::class);
         CustomField::observe(CustomFieldObserver::class);
+        // Live updates for the admin dashboard (lists, counters and detail pages refresh by themselves).
+        \App\Observers\DashboardLiveObserver::register();
 
         // Implicitly grant "Super Admin" role all permissions
         // This works in the app by using gate-related functions like auth()->user->can() and @can()

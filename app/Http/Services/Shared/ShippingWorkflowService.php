@@ -2,11 +2,14 @@
 
 namespace App\Http\Services\Shared;
 
+use App\Enums\AdminAlertType;
 use App\Enums\Notifications\NotificationCategoryEnum;
 use App\Enums\ShippingPaymentStatusEnum;
 use App\Enums\StatusShippingRequestEnum as Status;
 use App\Exceptions\CustomResponseException;
 use App\Models\ShippingRequest;
+use App\Support\Dashboard\AdminAlerts;
+use App\Support\Shipping\PickupMethod;
 use App\Traits\NotificationsTrait;
 use App\Utils\ConfigUtils;
 use Illuminate\Support\Facades\DB;
@@ -96,6 +99,25 @@ class ShippingWorkflowService
                 Log::warning('Failed to cancel shipping ' . $sr->id . ' for request ' . $requestId . ': ' . $e->getMessage());
             }
         });
+    }
+
+    /**
+     * Shipments on the older three-step status (Pending / InProgress / Completed) are changed by
+     * the admin from the dashboard list, outside the workflow above. This tells both parties.
+     */
+    public function announceLegacyStatus(ShippingRequest $sr): void
+    {
+        $order = ' ( ' . $sr->request_id . ' )';
+
+        try {
+            match ($sr->status) {
+                Status::InProgress => $this->notifyBoth($sr, 'الشحنة قيد التنفيذ', 'شحنة الطلب رقم' . $order . ' قيد التنفيذ'),
+                Status::Completed => $this->notifyBoth($sr, 'اكتمل الشحن', 'اكتمل شحن الطلب رقم' . $order),
+                default => null,
+            };
+        } catch (Throwable $e) {
+            Log::warning('Legacy shipping status notification failed for shipping ' . $sr->id . ': ' . $e->getMessage());
+        }
     }
 
     /** Paid shipments that ended without delivery and still owe the customer money. */
@@ -221,10 +243,19 @@ class ShippingWorkflowService
 
         if ($to === Status::BookingConfirmed) {
             if ($sr->payment_status !== ShippingPaymentStatusEnum::Paid->value) {
-                throw new CustomResponseException(code: 422, message: 'لا يمكن تأكيد الحجز قبل تأكيد دفع رسوم الشحن');
+                throw new CustomResponseException(code: 422, message: 'لا يمكن تأكيد الشحن قبل تأكيد دفع رسوم الشحن');
             }
             if (empty($attributes['carrier_name'] ?? $sr->carrier_name)) {
-                throw new CustomResponseException(code: 422, message: 'أدخل اسم شركة الشحن لتأكيد الحجز');
+                throw new CustomResponseException(code: 422, message: 'اختر شركة الشحن لتأكيد الشحن');
+            }
+            if (empty($attributes['pickup_method'] ?? $sr->pickup_method)) {
+                throw new CustomResponseException(code: 422, message: 'اختر طريقة تسليم الشحنة للشركة: استلام من الباب أو تسليم للفرع');
+            }
+            // Don't let a method through that the chosen company doesn't offer (e.g. door pick-up on a drop-off-only option).
+            $support = $attributes['carrier_pickup_support'] ?? $sr->carrier_pickup_support;
+            $method = $attributes['pickup_method'] ?? $sr->pickup_method;
+            if ($support && !in_array($method, PickupMethod::allowed($support), true)) {
+                throw new CustomResponseException(code: 422, message: 'هذه الشركة لا تدعم الطريقة المختارة (' . PickupMethod::supportLabel($support) . ')');
             }
         }
 
@@ -242,6 +273,7 @@ class ShippingWorkflowService
                 case Status::ReadyForReview:
                     $this->notifyCustomer($sr, 'تم استلام بيانات الشحن', 'بيانات الشحن للطلب رقم' . $order . ' قيد المراجعة');
                     $this->notifyToAdmin('طلب شحن جاهز للمراجعة', 'طلب الشحن للطلب رقم' . $order . ' جاهز للمراجعة', NotificationCategoryEnum::ShippingRequest, $sr->id);
+                    $this->alertAdmin(AdminAlertType::ShippingReview, $sr, 'شحنة جديدة بانتظار مراجعتك', 'أكمل الزبون بيانات شحن الطلب رقم' . $order . '. راجعها وابدأ البحث عن شركة شحن.');
                     break;
 
                 case Status::SearchingCarrier:
@@ -255,11 +287,13 @@ class ShippingWorkflowService
 
                 case Status::Paid:
                     $this->notifyBoth($sr, 'تم دفع رسوم الشحن', 'تم دفع رسوم شحن الطلب رقم' . $order);
-                    $this->notifyToAdmin('تم دفع رسوم شحن', 'تم دفع رسوم شحن الطلب رقم' . $order . '، يمكنك استكمال الحجز', NotificationCategoryEnum::ShippingRequest, $sr->id);
+                    $this->notifyToAdmin('تم دفع رسوم شحن', 'تم دفع رسوم شحن الطلب رقم' . $order . '، يمكنك تأكيد الشحن', NotificationCategoryEnum::ShippingRequest, $sr->id);
+                    $this->alertAdmin(AdminAlertType::ShippingPaid, $sr, 'دفع الزبون رسوم الشحن', 'تم دفع ' . $sr->shipping_cost . ' ريال رسوم شحن الطلب رقم' . $order . '. أكّد الشحن وسجّل شركة الشحن.');
                     break;
 
                 case Status::BookingConfirmed:
-                    $this->notifyBoth($sr, 'تم تأكيد حجز الشحن', 'تم حجز شحن الطلب رقم' . $order . ' لدى ' . $sr->carrier_name . ($sr->tracking_number ? ' - رقم التتبع ' . $sr->tracking_number : ''));
+                    $how = PickupMethod::notice($sr->pickup_method);
+                    $this->notifyBoth($sr, 'تم تأكيد الشحن', 'تم تأكيد شحن الطلب رقم' . $order . ' لدى ' . $sr->carrier_name . ($sr->tracking_number ? ' - رقم التتبع ' . $sr->tracking_number : '') . ($how ? ' — ' . $how : ''));
                     break;
 
                 case Status::PickedUp:
@@ -277,11 +311,13 @@ class ShippingWorkflowService
                 case Status::Unavailable:
                     $refund = $sr->payment_status === ShippingPaymentStatusEnum::Paid->value ? ' وسيتم رد المبلغ المدفوع.' : '';
                     $this->notifyBoth($sr, 'تعذّر توفير الشحن', 'تعذّر توفير خدمة الشحن للطلب رقم' . $order . '، يمكنكما ترتيب الشحن بأنفسكما.' . $refund);
+                    $this->alertRefundIfOwed($sr, 'تعذّر توفير شحن الطلب رقم' . $order);
                     break;
 
                 case Status::Canceled:
                     $reason = $sr->cancel_reason ? ' (' . $sr->cancel_reason . ')' : '';
                     $this->notifyBoth($sr, 'أُلغي طلب الشحن', 'أُلغي طلب شحن الطلب رقم' . $order . $reason);
+                    $this->alertRefundIfOwed($sr, 'أُلغي شحن الطلب رقم' . $order);
                     break;
 
                 default:
@@ -289,6 +325,27 @@ class ShippingWorkflowService
             }
         } catch (Throwable $e) {
             Log::warning('Shipping status notification failed for shipping ' . $sr->id . ': ' . $e->getMessage());
+        }
+    }
+
+    /** Something about this shipment needs the admin: browser alert + sound + the emails they chose. */
+    private function alertAdmin(AdminAlertType $type, ShippingRequest $sr, string $title, string $body): void
+    {
+        AdminAlerts::raise(
+            $type,
+            $title,
+            $body,
+            route('dashboard.shipping-request-management.show', $sr->id, false),
+            ['shipping_id' => $sr->id, 'request_id' => $sr->request_id],
+            'shipping',
+        );
+    }
+
+    /** A paid shipment that ended without delivery owes the customer money. */
+    private function alertRefundIfOwed(ShippingRequest $sr, string $what): void
+    {
+        if ($sr->payment_status === ShippingPaymentStatusEnum::Paid->value) {
+            $this->alertAdmin(AdminAlertType::ShippingRefund, $sr, 'يلزم رد مبلغ للزبون', $what . '، وقد دفع الزبون ' . $sr->shipping_cost . ' ريال. حوّل المبلغ ثم سجّل رده.');
         }
     }
 
@@ -319,12 +376,13 @@ class ShippingWorkflowService
             return;
         }
 
-        // Generic on purpose: ShippingRequest would deep-link into a chat and bump the chat badge.
+        // ShipmentUpdate opens the order's chat (where the pay / approve buttons are) but, unlike a
+        // chat message, counts on the bell rather than the chat badge.
         $this->notifyByID(
             userId: $userId,
             title: $title,
             body: $body,
-            category: NotificationCategoryEnum::Generic,
+            category: NotificationCategoryEnum::ShipmentUpdate,
             targetId: $sr->id,
         );
     }

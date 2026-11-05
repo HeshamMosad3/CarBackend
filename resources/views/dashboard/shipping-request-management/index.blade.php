@@ -1,5 +1,6 @@
 @extends('dashboard.layouts.app')
 @section('title', 'الشحن')
+@section('live_scope', 'shipping')
 @section('content')
     @php
         $groups = [
@@ -25,7 +26,7 @@
                     @if ($tone && ($groupCounts[$value] ?? 0) > 0)
                         <i class="bi bi-circle-fill text-{{ $tone }}" style="font-size: .45rem"></i>
                     @endif
-                    {{ $label }} <span class="count">{{ $groupCounts[$value] ?? 0 }}</span>
+                    {{ $label }} <span class="count" data-count-key="shipping:{{ $value }}">{{ $groupCounts[$value] ?? 0 }}</span>
                 </button>
             @endforeach
         </div>

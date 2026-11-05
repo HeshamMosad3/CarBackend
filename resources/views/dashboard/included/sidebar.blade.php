@@ -6,17 +6,17 @@
         ]],
         ['header' => 'العمليات', 'items' => [
             ['route' => 'dashboard.requests-management.index', 'match' => ['dashboard.requests-management.*', 'dashboard.response-management.*'], 'icon' => 'bi-clipboard-check', 'label' => 'الطلبات والعروض'],
-            ['route' => 'dashboard.shipping-request-management.index', 'match' => 'dashboard.shipping-request-management.*', 'icon' => 'bi-truck', 'label' => 'الشحن', 'badge' => $attention['shipping']],
-            ['route' => 'dashboard.complaint-management.complaints', 'match' => 'dashboard.complaint-management.*', 'icon' => 'bi-flag', 'label' => 'الشكاوى', 'badge' => $attention['complaints']],
+            ['route' => 'dashboard.shipping-request-management.index', 'match' => 'dashboard.shipping-request-management.*', 'icon' => 'bi-truck', 'label' => 'الشحن', 'badge' => $attention['shipping'], 'badgeKey' => 'shipping'],
+            ['route' => 'dashboard.complaint-management.complaints', 'match' => 'dashboard.complaint-management.*', 'icon' => 'bi-flag', 'label' => 'الشكاوى', 'badge' => $attention['complaints'], 'badgeKey' => 'complaints'],
         ]],
         ['header' => 'الحسابات', 'items' => [
             ['route' => 'dashboard.vendors-management.vendors.index', 'match' => 'dashboard.vendors-management.vendors.*', 'icon' => 'bi-building', 'label' => 'الشركات'],
-            ['route' => 'dashboard.vendors-management.join-requests.index', 'match' => 'dashboard.vendors-management.join-requests.*', 'icon' => 'bi-building-add', 'label' => 'طلبات الانضمام', 'badge' => $attention['joinRequests']],
+            ['route' => 'dashboard.vendors-management.join-requests.index', 'match' => 'dashboard.vendors-management.join-requests.*', 'icon' => 'bi-building-add', 'label' => 'طلبات الانضمام', 'badge' => $attention['joinRequests'], 'badgeKey' => 'joinRequests'],
             ['route' => 'dashboard.customers.index', 'match' => 'dashboard.customers.*', 'icon' => 'bi-people', 'label' => 'العملاء'],
         ]],
         ['header' => 'الإعدادات', 'items' => [
             ['route' => 'dashboard.categories.index', 'match' => ['dashboard.categories.*', 'dashboard.custom-fields.*'], 'icon' => 'bi-tags', 'label' => 'الأقسام والعمولات'],
-            ['route' => 'dashboard.settings.notification-emails.index', 'match' => 'dashboard.settings.notification-emails.*', 'icon' => 'bi-envelope-at', 'label' => 'إيميلات الإشعارات'],
+            ['route' => 'dashboard.settings.notification-emails.index', 'match' => 'dashboard.settings.notification-emails.*', 'icon' => 'bi-bell', 'label' => 'التنبيهات والإيميلات'],
             ['route' => 'dashboard.logs.index', 'match' => 'dashboard.logs.*', 'icon' => 'bi-terminal', 'label' => 'سجلات النظام'],
         ]],
     ];
@@ -40,6 +40,7 @@
                         @php $active = request()->routeIs(...(array) $item['match']); @endphp
                         <li class="nav-item">
                             <a href="{{ route($item['route']) }}" class="nav-link {{ $active ? 'active' : '' }}"
+                                @if (!empty($item['badgeKey'])) data-badge-key="{{ $item['badgeKey'] }}" @endif
                                 @if ($active) aria-current="page" @endif>
                                 <i class="nav-icon bi {{ $item['icon'] }}"></i>
                                 <p>

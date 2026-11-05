@@ -41,6 +41,14 @@ return [
         'access_token' => env('OTO_ACCESS_TOKEN'),
     ],
 
+    // Where the admin dashboard's browser reaches the websocket server, when that differs from
+    // REVERB_* (which is how this server reaches it). Leave unset to use REVERB_*.
+    'dashboard_live' => [
+        'host' => env('DASHBOARD_REVERB_HOST'),
+        'port' => env('DASHBOARD_REVERB_PORT'),
+        'scheme' => env('DASHBOARD_REVERB_SCHEME'),
+    ],
+
     'fcm' => [
         'project_id' => env('FCM_PROJECT_ID', 'car-mediator-platform'),
         'credentials_path' => storage_path('app/json/firebase/car-mediator-platform-firebase-adminsdk-fbsvc-1d8876fe49.json'),

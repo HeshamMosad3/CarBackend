@@ -2,6 +2,7 @@
 
 namespace App\Http\Services\Shared\Notifications;
 
+use App\Http\Repositories\Vendor\NewRequestRepository;
 use App\Models\Conversation;
 use App\Models\MessageConversation;
 use App\Models\User;
@@ -22,20 +23,25 @@ use Illuminate\Support\Facades\DB;
  */
 class NotificationCountsService
 {
+    public function __construct(protected NewRequestRepository $newRequests) {}
+
     public function unreadCountsForUser(int $userId): array
     {
         [$customerRequestsCount, $customerRequestsEntities] = $this->countsByBucket($userId, 'customer_requests');
         [$companyResponsesCount, $companyResponsesEntities] = $this->countsByBucket($userId, 'company_responses');
         [$conversationsCount, $conversationEntities, $requestConversationEntities] = $this->conversationCounts($userId);
+        $bellCount = $this->bellCount($userId);
 
         return [
             'customer_requests' => $customerRequestsCount,
             'company_responses' => $companyResponsesCount,
             'conversations' => $conversationsCount,
+            'bell' => $bellCount,
             'sections' => [
                 'customer_requests' => $customerRequestsCount,
                 'company_responses' => $companyResponsesCount,
                 'conversations' => $conversationsCount,
+                'bell' => $bellCount,
             ],
             'entities' => [
                 'conversations' => $conversationEntities,
@@ -46,13 +52,46 @@ class NotificationCountsService
         ];
     }
 
+    /**
+     * Notifications the bell is for: updates about the user's orders (offers, request and shipment
+     * status changes, refunds, account status). Chat messages have their own badge, and "new request"
+     * notifications belong to a vendor's own list, so neither is counted here.
+     */
+    public const BELL_EXCLUDED_CATEGORIES = ['chat_message', 'new_request'];
+
+    private function bellCount(int $userId): int
+    {
+        return DB::table('notifications')
+            ->where('notifiable_type', User::class)
+            ->where('notifiable_id', $userId)
+            ->whereNull('read_at')
+            ->where(function ($q) {
+                $q->whereNull('category')->orWhereNotIn('category', self::BELL_EXCLUDED_CATEGORIES);
+            })
+            ->count();
+    }
+
     private function countsByBucket(int $userId, string $badgeBucket): array
     {
-        $rows = DB::table('notifications')
+        $query = DB::table('notifications')
             ->where('notifiable_type', User::class)
             ->where('notifiable_id', $userId)
             ->where('badge_category', $badgeBucket)
-            ->whereNull('read_at')
+            ->whereNull('read_at');
+
+        // A vendor's "new requests" badge only counts requests that are still in their list. Once a
+        // request is closed, cancelled, completed or answered, its old notification stays unread but
+        // must not leave a badge on an empty screen.
+        if ($badgeBucket === 'customer_requests' && ($vendorId = Vendor::where('user_id', $userId)->value('id'))) {
+            $visible = $this->newRequests->newRequestsQuery((int) $vendorId)
+                ->pluck('request_customers.id')
+                ->map(fn ($id) => (string) $id)
+                ->all();
+
+            $query->whereIn('target_id', $visible);
+        }
+
+        $rows = $query
             ->select('target_id', DB::raw('count(*) as count'))
             ->groupBy('target_id')
             ->get();

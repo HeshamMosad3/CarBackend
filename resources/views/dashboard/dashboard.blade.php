@@ -6,7 +6,7 @@
         $greeting = $hour < 12 ? 'صباح الخير' : 'مساء الخير';
         $attentionRows = [
             ['count' => $attention['shippingRefund'], 'label' => 'مبالغ شحن يلزم ردّها للزبائن', 'hint' => 'شحنات مدفوعة أُلغيت أو تعذّر توفيرها', 'icon' => 'bi-arrow-counterclockwise', 'tone' => 'danger', 'url' => route('dashboard.shipping-request-management.index', ['group' => 'refund'])],
-            ['count' => $attention['shippingAction'], 'label' => 'طلبات شحن بانتظار إجراء منك', 'hint' => 'مراجعة، تسعير، أو تأكيد حجز', 'icon' => 'bi-truck', 'tone' => 'warning', 'url' => route('dashboard.shipping-request-management.index', ['group' => 'action'])],
+            ['count' => $attention['shippingAction'], 'label' => 'طلبات شحن بانتظار إجراء منك', 'hint' => 'مراجعة، تسعير، أو تأكيد الشحن', 'icon' => 'bi-truck', 'tone' => 'warning', 'url' => route('dashboard.shipping-request-management.index', ['group' => 'action'])],
             ['count' => $attention['joinRequests'], 'label' => 'طلبات انضمام شركات', 'hint' => 'بانتظار القبول أو الرفض', 'icon' => 'bi-building-add', 'tone' => 'primary', 'url' => route('dashboard.vendors-management.join-requests.index')],
             ['count' => $attention['complaints'], 'label' => 'شكاوى جديدة', 'hint' => 'لم تتم مراجعتها بعد', 'icon' => 'bi-flag', 'tone' => 'info', 'url' => route('dashboard.complaint-management.complaints')],
         ];
@@ -15,7 +15,7 @@
     <x-dash.page-header :title="$greeting" subtitle="نظرة عامة على نشاط المنصة وما يحتاج متابعتك اليوم." />
 
     <div class="app-content">
-        <div class="row g-3 mb-3">
+        <div class="row g-3 mb-3" data-live-region="home-stats">
             <div class="col-6 col-xl-3">
                 <x-dash.stat label="الطلبات" :value="$stats['requests']" icon="bi-clipboard-check" tone="primary"
                     :hint="$stats['openRequests'] . ' مفتوح · ' . $stats['requestsToday'] . ' اليوم'"
@@ -45,7 +45,7 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div class="chart-box"><canvas id="activityChart" aria-label="مخطط النشاط اليومي"></canvas></div>
+                        <div class="chart-box" data-live-chart><canvas id="activityChart" aria-label="مخطط النشاط اليومي"></canvas></div>
                     </div>
                 </div>
             </div>
@@ -54,7 +54,7 @@
                     <div class="card-header">
                         <div class="card-title"><i class="bi bi-bell icon"></i> بانتظار متابعتك</div>
                     </div>
-                    <div class="card-body d-flex flex-column gap-2">
+                    <div class="card-body d-flex flex-column gap-2" data-live-region="home-attention">
                         @if ($attention['total'] === 0)
                             <div class="all-clear"><i class="bi bi-check2-circle fs-4"></i> كل شيء تحت السيطرة، لا يوجد ما ينتظرك.</div>
                         @endif
@@ -73,7 +73,7 @@
             </div>
         </div>
 
-        <div class="row g-3">
+        <div class="row g-3" data-live-region="home-lists">
             <div class="col-xl-7">
                 <div class="card table-card h-100">
                     <div class="card-header">
@@ -239,6 +239,18 @@
 
             render();
             document.addEventListener('dash:theme', render);
+
+            // The live script calls this when new activity arrives, so the chart moves without a refresh.
+            window.DashHome = {
+                updateChart: function(next) {
+                    if (!chart || !next) return;
+                    chart.data.labels = next.labels;
+                    chart.data.datasets[0].data = next.requests;
+                    chart.data.datasets[1].data = next.responses;
+                    chart.data.datasets[2].data = next.shipments;
+                    chart.update();
+                }
+            };
         })();
     </script>
 @endpush

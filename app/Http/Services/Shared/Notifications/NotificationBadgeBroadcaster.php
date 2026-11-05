@@ -18,10 +18,9 @@ class NotificationBadgeBroadcaster
 
     public function broadcast(int $userId, NotificationCategoryEnum $category): void
     {
-        $bucket = $category->badgeBucket();
-        if ($bucket === null) {
-            return;
-        }
+        // Categories without their own badge (shipment/request status changes...) still move the
+        // bell, so they are broadcast too, under the "bell" bucket.
+        $bucket = $category->badgeBucket() ?? 'bell';
 
         try {
             NotificationBadgeUpdated::dispatch($userId, $bucket, $this->counts->unreadCountsForUser($userId));

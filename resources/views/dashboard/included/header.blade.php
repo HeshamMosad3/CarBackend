@@ -1,37 +1,8 @@
 @php
     $attention = \App\Support\Dashboard\AdminAttention::counts();
+    $recentAlerts = \App\Models\AdminAlert::latest('id')->limit(8)->get();
     $admin = auth('admin')->user();
     $adminLabel = $admin->email ?? 'الإدارة';
-    $attentionItems = [
-        [
-            'count' => $attention['shippingRefund'],
-            'label' => 'مبالغ شحن يلزم ردّها',
-            'icon' => 'bi-arrow-counterclockwise',
-            'tone' => 'danger',
-            'url' => route('dashboard.shipping-request-management.index', ['group' => 'refund']),
-        ],
-        [
-            'count' => $attention['shippingAction'],
-            'label' => 'طلبات شحن بانتظار إجراء',
-            'icon' => 'bi-truck',
-            'tone' => 'warning',
-            'url' => route('dashboard.shipping-request-management.index', ['group' => 'action']),
-        ],
-        [
-            'count' => $attention['joinRequests'],
-            'label' => 'طلبات انضمام شركات',
-            'icon' => 'bi-building-add',
-            'tone' => 'primary',
-            'url' => route('dashboard.vendors-management.join-requests.index'),
-        ],
-        [
-            'count' => $attention['complaints'],
-            'label' => 'شكاوى جديدة',
-            'icon' => 'bi-flag',
-            'tone' => 'info',
-            'url' => route('dashboard.complaint-management.complaints'),
-        ],
-    ];
 @endphp
 
 <nav class="app-header navbar navbar-expand">
@@ -41,6 +12,12 @@
                 <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" aria-label="إظهار/إخفاء القائمة">
                     <i class="bi bi-list fs-5"></i>
                 </a>
+            </li>
+            <li class="nav-item d-none d-sm-block">
+                {{-- Green while the dashboard is receiving changes live; amber if it is only checking every few seconds. --}}
+                <span id="liveStatus" class="live-pill is-connecting" title="جارٍ الاتصال بالتحديث المباشر">
+                    <span class="dot"></span><span class="live-text">مباشر</span>
+                </span>
             </li>
         </ul>
 
@@ -53,28 +30,34 @@
             </li>
 
             <li class="nav-item dropdown">
-                <a class="nav-link position-relative" data-bs-toggle="dropdown" href="#" aria-label="ما يحتاج متابعتك">
-                    <i class="bi bi-bell fs-6"></i>
-                    @if ($attention['total'] > 0)
-                        <span class="header-badge">{{ $attention['total'] > 99 ? '99+' : $attention['total'] }}</span>
-                    @endif
+                <a class="nav-link position-relative" id="bellToggle" data-bs-toggle="dropdown" data-bs-auto-close="outside" href="#"
+                    aria-label="ما يحتاج متابعتك">
+                    <i class="bi bi-bell fs-6" id="bellIcon"></i>
+                    <span class="header-badge" id="bellBadge" @if ($attention['total'] === 0) hidden @endif>{{ $attention['total'] > 99 ? '99+' : $attention['total'] }}</span>
                 </a>
                 <div class="dropdown-menu dropdown-menu-end attention-menu">
-                    <h6 class="dropdown-header">بانتظار متابعتك</h6>
-                    @if ($attention['total'] === 0)
-                        <div class="all-clear m-1">
-                            <i class="bi bi-check2-circle fs-5"></i> لا يوجد ما يحتاج متابعتك الآن
+                    <div id="attentionMenuBody">
+                        @include('dashboard.included.attention-menu')
+                    </div>
+
+                    <div class="dropdown-divider"></div>
+                    {{-- How this browser alerts the admin. Kept per browser (the settings page explains each part). --}}
+                    <div class="live-controls px-2 pb-1">
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                            <span class="small fw-semibold"><i class="bi bi-volume-up"></i> صوت التنبيهات</span>
+                            <div class="form-check form-switch m-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="liveSoundToggle" aria-label="صوت التنبيهات">
+                            </div>
                         </div>
-                    @else
-                        @foreach ($attentionItems as $item)
-                            @continue($item['count'] === 0)
-                            <a href="{{ $item['url'] }}" class="dropdown-item attention-item">
-                                <span class="icon tone-{{ $item['tone'] }}"><i class="bi {{ $item['icon'] }}"></i></span>
-                                <span class="flex-grow-1">{{ $item['label'] }}</span>
-                                <span class="fw-bold num">{{ $item['count'] }}</span>
-                            </a>
-                        @endforeach
-                    @endif
+                        <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                            <span class="small fw-semibold"><i class="bi bi-window-stack"></i> إشعارات المتصفح</span>
+                            <button type="button" class="btn btn-sm btn-light" id="liveDesktopBtn">…</button>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-light flex-grow-1" id="liveTestBtn"><i class="bi bi-play-circle"></i> جرّب التنبيه</button>
+                            <a href="{{ route('dashboard.settings.notification-emails.index') }}" class="btn btn-sm btn-light flex-grow-1"><i class="bi bi-sliders"></i> الإعدادات</a>
+                        </div>
+                    </div>
                 </div>
             </li>
 

@@ -16,6 +16,10 @@ enum NotificationCategoryEnum: string
     case ShippingRequest = 'shipping_request';
     case ComplaintFiled = 'complaint_filed';
     case VendorJoinRequest = 'vendor_join_request';
+    /** A shipment of the user's order changed status (priced, paid, booked, in transit, delivered...). */
+    case ShipmentUpdate = 'shipment_update';
+    /** The status of the user's request itself changed (activated, closed, canceled, completed). */
+    case RequestUpdate = 'request_update';
     case Generic = 'generic';
 
     /**
@@ -24,9 +28,11 @@ enum NotificationCategoryEnum: string
     public function route(): string
     {
         return match ($this) {
-            self::ChatMessage, self::ShippingRequest => 'chat',
-            self::VendorResponse => 'request_responses',
+            // A shipment's next step (paying, approving...) lives in its chat, so that is where it opens.
+            self::ChatMessage, self::ShippingRequest, self::ShipmentUpdate => 'chat',
+            self::VendorResponse, self::RequestUpdate => 'request_responses',
             self::NewRequest => 'request_details',
+            self::VendorStatus => 'home',
             default => 'notifications',
         };
     }
@@ -39,8 +45,8 @@ enum NotificationCategoryEnum: string
     public function legacyCategory(): string
     {
         return match ($this) {
-            self::ChatMessage, self::ShippingRequest, self::VendorStatus, self::Generic => 'conversations',
-            self::VendorResponse => 'company_responses',
+            self::ChatMessage, self::ShippingRequest, self::VendorStatus, self::ShipmentUpdate, self::Generic => 'conversations',
+            self::VendorResponse, self::RequestUpdate => 'company_responses',
             self::NewRequest, self::ComplaintFiled, self::VendorJoinRequest => 'customer_requests',
         };
     }

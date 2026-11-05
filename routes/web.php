@@ -112,7 +112,15 @@ Route::prefix('uploads-private')->middleware('auth:admin')->controller(App\Http\
     Route::get('/{filename}', 'getSensitiveImage')->name('uploads-private');
 });
 
+// Lets the dashboard's websocket join its private "admin.dashboard" channel (admins only).
+Route::post('/dashboard/broadcasting/auth', [\Illuminate\Broadcasting\BroadcastController::class, 'authenticate'])
+    ->middleware(['web', 'auth:admin', 'role:Super-Admin|admin'])
+    ->name('dashboard.broadcasting.auth');
+
 Route::prefix('/dashboard')->middleware(['auth:admin', 'role:Super-Admin|admin', 'verified'])->group(function () {
+    Route::get('/live/pulse', [App\Http\Controllers\Dashboard\DashboardLiveController::class, 'pulse'])->name('dashboard.live.pulse');
+    Route::get('/live/chart', [App\Http\Controllers\Dashboard\DashboardLiveController::class, 'chart'])->name('dashboard.live.chart');
+
     Route::prefix('/categories')->controller(App\Http\Controllers\Dashboard\CategoryController::class)->group(function () {
         Route::get('/', 'index')->name('dashboard.categories.index');
         Route::get('/create', 'create')->name('dashboard.categories.create');
@@ -178,6 +186,8 @@ Route::prefix('/dashboard')->middleware(['auth:admin', 'role:Super-Admin|admin',
     Route::prefix('settings/notification-emails')->controller(App\Http\Controllers\Dashboard\Settings\NotificationEmailController::class)->group(function () {
         Route::get('/', 'index')->name('dashboard.settings.notification-emails.index');
         Route::post('/', 'store')->name('dashboard.settings.notification-emails.store');
+        Route::patch('/{id}', 'update')->name('dashboard.settings.notification-emails.update');
+        Route::post('/{id}/test', 'test')->name('dashboard.settings.notification-emails.test');
         Route::delete('/{id}', 'destroy')->name('dashboard.settings.notification-emails.destroy');
     });
 });

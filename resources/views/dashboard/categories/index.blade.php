@@ -7,7 +7,7 @@
     </x-dash.page-header>
 
     <div class="app-content">
-        <div class="card table-card">
+        <div class="card table-card" data-live-region="categories">
             @if ($categories->isEmpty())
                 <x-dash.empty icon="bi-tags" title="لا توجد أقسام بعد" text="أضف أول قسم ليظهر للعملاء في التطبيق.">
                     <a href="{{ route('dashboard.categories.create') }}" class="btn btn-primary mt-3"><i class="bi bi-plus-lg"></i> إضافة قسم</a>

@@ -53,6 +53,12 @@
                         data-confirm="سيصل الزبون إشعار بالمبلغ ويُطلب منه الدفع خلال {{ $paymentDays }} أيام. متابعة؟" data-confirm-text="إرسال للزبون">
                         @csrf
                         <input type="hidden" name="to" value="AwaitingPayment">
+                        {{-- Filled when a company is chosen in the list below; remembered so confirming later is pre-filled. --}}
+                        <input type="hidden" name="carrier_name" id="q_carrier_name" value="{{ $shippingRequest->carrier_name }}">
+                        <input type="hidden" name="oto_delivery_option_id" id="q_option_id" value="{{ $shippingRequest->oto_delivery_option_id }}">
+                        <input type="hidden" name="pickup_method" id="q_method" value="{{ $shippingRequest->pickup_method }}">
+                        <input type="hidden" name="carrier_pickup_support" id="q_support" value="{{ $shippingRequest->carrier_pickup_support }}">
+                        <div class="small mb-2 text-muted"><i class="bi bi-truck"></i> الشركة المقترحة: <b id="quoteCarrierLabel">{{ $shippingRequest->carrier_name ?: 'لم تُختر بعد — اخترها من القائمة أدناه' }}</b></div>
                         <label class="form-label" for="shipping_cost">تكلفة الشحن الإجمالية</label>
                         <div class="d-flex gap-2 flex-wrap">
                             <div class="input-group" style="max-width: 260px">
@@ -87,16 +93,22 @@
 
             @case(ShippingStatus::Paid)
                 <div class="action-panel">
-                    <div class="action-title">دفع الزبون — احجز الشحنة</div>
-                    <div class="action-hint">سجّل شركة الشحن ورقم البوليصة. يمكنك أيضاً الحجز مباشرة لدى OTO من القسم أدناه.</div>
+                    <div class="action-title">دفع الزبون — أكّد الشحن</div>
+                    <div class="action-hint">اختر الشركة من القائمة أدناه فيُعبّأ اسمها وطريقة التسليم تلقائياً. يمكنك أيضاً الحجز مباشرة لدى OTO من نفس القائمة.</div>
+                    @php
+                        $allowedMethods = \App\Support\Shipping\PickupMethod::allowed($shippingRequest->carrier_pickup_support);
+                        $methodNow = $shippingRequest->pickup_method;
+                    @endphp
                     <form method="POST" action="{{ $transitionUrl }}">
                         @csrf
                         <input type="hidden" name="to" value="BookingConfirmed">
+                        <input type="hidden" name="oto_delivery_option_id" id="oto_delivery_option_id" value="{{ $shippingRequest->oto_delivery_option_id }}">
+                        <input type="hidden" name="carrier_pickup_support" id="carrier_pickup_support" value="{{ $shippingRequest->carrier_pickup_support }}">
                         <div class="row g-2 mb-2">
                             <div class="col-md-6">
                                 <label class="form-label" for="carrier_name">شركة الشحن <span class="text-danger">*</span></label>
                                 <input type="text" name="carrier_name" id="carrier_name" class="form-control" maxlength="255"
-                                    required value="{{ $shippingRequest->carrier_name }}">
+                                    required value="{{ $shippingRequest->carrier_name }}" placeholder="تُعبّأ عند اختيار شركة من القائمة">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label" for="tracking_number">رقم البوليصة / التتبع</label>
@@ -104,12 +116,33 @@
                                     maxlength="255" value="{{ $shippingRequest->tracking_number ?: $shippingRequest->oto_id }}">
                             </div>
                         </div>
+
                         <div class="mb-3">
-                            <label class="form-label" for="pickup_details">بيانات الاستلام (تظهر للتاجر)</label>
-                            <textarea name="pickup_details" id="pickup_details" class="form-control" rows="3" maxlength="2000"
-                                placeholder="مثال: سيصل مندوب أرامكس يوم الأحد بين 10 و 2 ظهراً.">{{ $shippingRequest->pickup_details }}</textarea>
+                            <div class="form-label">كيف تصل الشحنة إلى الشركة؟ <span class="text-danger">*</span></div>
+                            <div class="row g-2">
+                                @foreach ([\App\Support\Shipping\PickupMethod::PICKUP => ['bi-house-door', 'استلام من الباب', 'يصل مندوب الشركة إلى التاجر ويستلم الطرد'], \App\Support\Shipping\PickupMethod::DROPOFF => ['bi-shop', 'تسليم للفرع', 'يوصل التاجر الطرد بنفسه إلى فرع الشركة']] as $value => [$icon, $title, $hint])
+                                    <div class="col-md-6">
+                                        <label class="method-option {{ in_array($value, $allowedMethods, true) ? '' : 'is-disabled' }}">
+                                            <input type="radio" class="form-check-input" name="pickup_method" id="pm_{{ $value }}" value="{{ $value }}"
+                                                required @checked($methodNow === $value) @disabled(!in_array($value, $allowedMethods, true))>
+                                            <span class="icon"><i class="bi {{ $icon }}"></i></span>
+                                            <span class="min-w-0">
+                                                <span class="d-block fw-semibold">{{ $title }}</span>
+                                                <span class="d-block small text-muted">{{ $hint }}</span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                @endforeach
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle"></i> تأكيد الحجز</button>
+
+                        <div class="mb-3">
+                            <label class="form-label" for="pickup_details">تعليمات للتاجر (تظهر له)</label>
+                            <textarea name="pickup_details" id="pickup_details" class="form-control" rows="3" maxlength="2000"
+                                data-auto=""
+                                placeholder="تُكتب تلقائياً حسب الشركة والطريقة، ويمكنك تعديلها.">{{ $shippingRequest->pickup_details }}</textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success"><i class="bi bi-check2-circle"></i> تأكيد الشحن</button>
                     </form>
                 </div>
             @break

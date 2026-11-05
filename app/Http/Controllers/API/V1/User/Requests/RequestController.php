@@ -184,7 +184,7 @@ class RequestController extends Controller
             'is_user_confirmed' => true,
         ]);
 
-        \App\Jobs\SendNewShippingRequestNotificationJob::dispatch($shippingRequest->id);
+        // The admin alert (and its email) for a shipment ready for review is raised by the workflow.
 
         return buildApiResponseHelper(true, 'تم استلام بيانات الشحن وسيتم إشعارك بتكلفة الشحن بعد المراجعة', [
             'shippingRequestId' => $shippingRequest->id,
@@ -214,8 +214,15 @@ class RequestController extends Controller
 
         $this->notifyToAdmin('طلب شحنة جديد', 'هناك طلب شحنة جديد ... طلب شحنة جديد', NotificationCategoryEnum::ShippingRequest, $request->id);
 
-        // Dispatch Email Notification to Admin Emails
-        \App\Jobs\SendNewShippingRequestNotificationJob::dispatch($request->id);
+        // Bulk updates fire no model events, so tell the dashboard (and the chosen emails) directly.
+        \App\Support\Dashboard\AdminAlerts::raise(
+            \App\Enums\AdminAlertType::ShippingLegacy,
+            'طلب شحن جديد بانتظار الحجز',
+            'أكّد الزبون طلب شحن الطلب رقم ( ' . $shippingRequest->request_id . ' ). اختر شركة الشحن وأنشئ الطلب.',
+            route('dashboard.shipping-request-management.show', $shippingRequest->id, false),
+            ['shipping_id' => $shippingRequest->id, 'request_id' => $shippingRequest->request_id],
+            'shipping',
+        );
 
         return buildApiResponseHelper(true, 'تم تاكيد الشحنة بنجاح');
     }

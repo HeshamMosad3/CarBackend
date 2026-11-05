@@ -36,7 +36,7 @@ enum StatusShippingRequestEnum: string
             self::SearchingCarrier->value => 'جارٍ البحث عن شركة شحن',
             self::AwaitingPayment->value => 'بانتظار دفع رسوم الشحن',
             self::Paid->value => 'تم دفع رسوم الشحن',
-            self::BookingConfirmed->value => 'تم تأكيد الحجز',
+            self::BookingConfirmed->value => 'تم تأكيد الشحن',
             self::PickedUp->value => 'تم استلام الشحنة',
             self::InTransit->value => 'في الطريق',
             self::Delivered->value => 'تم التسليم',

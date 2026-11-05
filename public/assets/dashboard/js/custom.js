@@ -247,10 +247,13 @@
         return html + '</div>';
     }
 
+    // Reloads every server-side table on the page, keeping the current page and search.
+    // (DataTable.tables({api: true}) returns an empty API in DataTables 2.1, so go through the nodes.)
     function reloadTables() {
-        if (window.DataTable) {
-            DataTable.tables({ api: true }).ajax.reload(null, false);
-        }
+        if (!window.DataTable) return;
+        DataTable.tables().forEach(function (node) {
+            try { new DataTable.Api(node).ajax.reload(null, false); } catch (e) { /* not an ajax table */ }
+        });
     }
 
     function initTooltips(scope) {

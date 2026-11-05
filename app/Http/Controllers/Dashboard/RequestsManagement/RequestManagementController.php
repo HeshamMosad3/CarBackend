@@ -2,16 +2,20 @@
 
 namespace App\Http\Controllers\Dashboard\RequestsManagement;
 
+use App\Enums\Notifications\NotificationCategoryEnum;
 use App\Enums\RequestCustomerStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Services\Dashboard\RequestsManagement\RequestsManagementService;
 use App\Models\RequestCustomer;
+use App\Traits\NotificationsTrait;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class RequestManagementController extends Controller
 {
+    use NotificationsTrait;
+
     public function __construct(protected RequestsManagementService $service) {}
 
     public function index(Request $request)
@@ -40,10 +44,16 @@ class RequestManagementController extends Controller
         }
 
         $requestCustomer = RequestCustomer::find($request->id);
+        $previousStatus = $requestCustomer->status;
         $requestCustomer->status = $request->status;
 
         if (! $requestCustomer->save())
             return buildApiResponseHelper(false, 'لم يتم التعديل بنجاح');
+
+        // The customer follows their order from the app, so a status change made here must reach them.
+        if ($previousStatus !== $request->status) {
+            $this->notifyCustomerOfStatus($requestCustomer);
+        }
 
         $message = '';
 
@@ -58,6 +68,35 @@ class RequestManagementController extends Controller
         }
 
         return buildApiResponseHelper(true, $message);
+    }
+
+    private function notifyCustomerOfStatus(RequestCustomer $requestCustomer): void
+    {
+        $order = ' ( ' . $requestCustomer->id . ' )';
+        [$title, $body] = match ($requestCustomer->status) {
+            RequestCustomerStatusEnum::Open->value => ['تم تفعيل طلبك', 'تم تفعيل طلبك رقم' . $order . ' وأصبح متاحاً للشركات'],
+            RequestCustomerStatusEnum::Closed->value => ['تم إغلاق طلبك', 'تم إغلاق طلبك رقم' . $order . ' ولن تصلك عروض جديدة عليه'],
+            RequestCustomerStatusEnum::Canceled->value => ['تم إلغاء طلبك', 'تم إلغاء طلبك رقم' . $order],
+            RequestCustomerStatusEnum::Completed->value => ['اكتمل طلبك', 'تم تحديد طلبك رقم' . $order . ' كمكتمل'],
+            default => [null, null],
+        };
+
+        if ($title === null) {
+            return;
+        }
+
+        try {
+            // RequestUpdate opens the request's offers, and counts on the bell rather than a chat/offer badge.
+            $this->notifyByID(
+                userId: $requestCustomer->user_id,
+                title: $title,
+                body: $body,
+                category: NotificationCategoryEnum::RequestUpdate,
+                targetId: $requestCustomer->id,
+            );
+        } catch (\Throwable $e) {
+            report($e); // a push failure must never undo the status change
+        }
     }
 
     public function delete(Request $request, $id)

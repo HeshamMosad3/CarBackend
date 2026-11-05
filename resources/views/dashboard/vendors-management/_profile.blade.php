@@ -6,7 +6,7 @@
 @endphp
 
 <div class="row g-3">
-    <div class="col-lg-8">
+    <div class="col-lg-8" data-live-region="vendor-main">
         <div class="card mb-3">
             <div class="card-body">
                 <div class="profile-head">
@@ -79,7 +79,7 @@
         </div>
     </div>
 
-    <div class="col-lg-4">
+    <div class="col-lg-4" data-live-region="vendor-side">
         @isset($responsesCount)
             <div class="mb-3">
                 <x-dash.stat label="العروض المقدّمة" :value="$responsesCount" icon="bi-chat-square-text" tone="info" />

@@ -49,10 +49,15 @@ class ShippingRequestManagementController extends Controller
             return buildApiResponseHelper(false, 'لا يمكن تعديل حالة هذا الشحن من هنا');
         }
 
+        $previousStatus = $shippingRequest->status;
         $shippingRequest->status = $request->status;
 
         if (! $shippingRequest->save())
             return buildApiResponseHelper(false, 'لم يتم التعديل بنجاح');
+
+        if ($previousStatus !== $requested) {
+            $this->workflow->announceLegacyStatus($shippingRequest);
+        }
 
         $message = '';
 
@@ -100,6 +105,9 @@ class ShippingRequestManagementController extends Controller
             'tracking_number' => ['nullable', 'string', 'max:255'],
             'pickup_details' => ['nullable', 'string', 'max:2000'],
             'cancel_reason' => ['nullable', 'string', 'max:255'],
+            'pickup_method' => ['nullable', Rule::in(\App\Support\Shipping\PickupMethod::ALL)],
+            'oto_delivery_option_id' => ['nullable', 'string', 'max:40'],
+            'carrier_pickup_support' => ['nullable', 'string', 'max:30'],
         ]);
 
         if ($validator->fails()) {
@@ -111,8 +119,9 @@ class ShippingRequestManagementController extends Controller
 
         // Only the columns that belong to the chosen step are accepted.
         $allowed = match ($to) {
-            StatusShippingRequestEnum::AwaitingPayment => ['shipping_cost'],
-            StatusShippingRequestEnum::BookingConfirmed => ['carrier_name', 'tracking_number', 'pickup_details'],
+            // The carrier chosen while pricing is remembered, so confirming later is already filled in.
+            StatusShippingRequestEnum::AwaitingPayment => ['shipping_cost', 'carrier_name', 'oto_delivery_option_id', 'pickup_method', 'carrier_pickup_support'],
+            StatusShippingRequestEnum::BookingConfirmed => ['carrier_name', 'tracking_number', 'pickup_details', 'pickup_method', 'oto_delivery_option_id', 'carrier_pickup_support'],
             StatusShippingRequestEnum::Unavailable, StatusShippingRequestEnum::Canceled => ['cancel_reason'],
             default => [],
         };

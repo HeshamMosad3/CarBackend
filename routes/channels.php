@@ -8,6 +8,11 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 });
 
+// The admin dashboard's live channel: any signed-in admin (the "admin" guard), nobody else.
+Broadcast::channel(\App\Support\Dashboard\AdminAlerts::CHANNEL, function ($admin) {
+    return $admin instanceof \App\Models\Admin;
+}, ['guards' => ['admin']]);
+
 Broadcast::channel('user.{id}', function ($user, $id) {
     Log::debug("Broadcast auth attempt on user.{$id} by user {$user->id}");
     return (int) $user->id === (int) $id;

@@ -41,6 +41,40 @@ class AdminAttention
             ->whereIn('shipping_requests.status', [Ship::Canceled->value, Ship::Unavailable->value]);
     }
 
+    /**
+     * A fingerprint of everything the dashboard shows. If it differs from the last one the page saw,
+     * something changed that no event announced (a bulk update, a dropped websocket...).
+     */
+    public static function fingerprint(array $attention): string
+    {
+        $stamp = fn (string $model) => (string) $model::withTrashed()->max('updated_at');
+
+        return md5(json_encode([
+            $attention,
+            $stamp(\App\Models\RequestCustomer::class),
+            $stamp(\App\Models\RequestResponse::class),
+            $stamp(ShippingRequest::class),
+            $stamp(Complaint::class),
+            $stamp(\App\Models\Vendor::class),
+            $stamp(User::class),
+            $stamp(\App\Models\Category::class),
+            \App\Models\RequestCustomer::count(),
+            ShippingRequest::count(),
+            Complaint::count(),
+        ]));
+    }
+
+    /**
+     * The same counts, recomputed. counts() remembers its answer for the rest of the request, which is
+     * wrong inside long-running processes (queue workers) that serve many changes in a row.
+     */
+    public static function fresh(): array
+    {
+        self::$counts = null;
+
+        return self::counts();
+    }
+
     public static function counts(): array
     {
         if (self::$counts !== null) {

@@ -266,6 +266,8 @@ class ShippingController extends Controller
                 'payment_status_label' => ShippingPaymentStatusEnum::trans($sr->payment_status),
                 'payment_due_at' => $sr->payment_due_at?->format('Y-m-d H:i'),
                 'pickup_details' => $sr->pickup_details,
+                'pickup_method' => $sr->pickup_method,
+                'pickup_method_label' => \App\Support\Shipping\PickupMethod::label($sr->pickup_method),
                 // Shipments from before the manual-quote flow that the customer never confirmed can
                 // still be completed through the same form.
                 'needs_data' => in_array($sr->status, [Status::AwaitingCustomerApproval, Status::AwaitingCustomerData], true)

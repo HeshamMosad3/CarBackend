@@ -64,7 +64,7 @@ class DashboardController extends Controller
         return view('dashboard.dashboard', [
             'attention' => $attention,
             'stats' => $stats,
-            'chart' => $this->activityChart(),
+            'chart' => $this->chartData(),
             'recentRequests' => $recentRequests,
             'shipmentsToHandle' => $shipmentsToHandle,
             'pendingVendors' => $pendingVendors,
@@ -72,7 +72,7 @@ class DashboardController extends Controller
     }
 
     /** Daily requests, offers and shipments over the last two weeks. */
-    private function activityChart(): array
+    public function chartData(): array
     {
         $from = today()->subDays(self::CHART_DAYS - 1);
         // Through the models so soft-deleted rows stay out of the counts.

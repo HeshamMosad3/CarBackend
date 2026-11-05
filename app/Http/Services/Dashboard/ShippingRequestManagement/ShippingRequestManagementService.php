@@ -158,6 +158,17 @@ class ShippingRequestManagementService extends BaseService
 
         $update = ['oto_id' => $createOrderResponse['otoId']];
 
+        // Remember which company was booked and how the parcel reaches it, so confirming the shipping
+        // afterwards is already filled in (the admin never retypes the company name).
+        foreach (['carrierName' => 'carrier_name', 'carrierPickupSupport' => 'carrier_pickup_support', 'deliveryOptionId' => 'oto_delivery_option_id'] as $input => $column) {
+            if ($request->filled($input)) {
+                $update[$column] = (string) $request->input($input);
+            }
+        }
+        if (in_array($request->input('pickupMethod'), \App\Support\Shipping\PickupMethod::ALL, true)) {
+            $update['pickup_method'] = $request->input('pickupMethod');
+        }
+
         // New-flow shipments change status only through ShippingWorkflowService, so booking
         // with OTO just records its id there; legacy ones keep moving to InProgress as before.
         if ($isLegacy) {

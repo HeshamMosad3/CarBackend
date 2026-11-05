@@ -42,7 +42,7 @@
 
     <div class="app-content">
         <div class="row g-3">
-            <div class="col-lg-8 d-flex flex-column gap-3">
+            <div class="col-lg-8 d-flex flex-column gap-3" data-live-region="request-main">
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title"><i class="bi bi-card-text icon"></i> تفاصيل الطلب</div>
@@ -135,7 +135,7 @@
                 </div>
             </div>
 
-            <div class="col-lg-4 d-flex flex-column gap-3">
+            <div class="col-lg-4 d-flex flex-column gap-3" data-live-region="request-side">
                 <div class="card">
                     <div class="card-header">
                         <div class="card-title"><i class="bi bi-person icon"></i> العميل</div>

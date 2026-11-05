@@ -30,7 +30,7 @@
     @stack('css_styles')
 </head>
 
-<body class="layout-fixed sidebar-expand-lg">
+<body class="layout-fixed sidebar-expand-lg" data-live-scope="@yield('live_scope')">
     <div class="app-wrapper">
         @include('dashboard.included.header')
         @include('dashboard.included.sidebar')
@@ -45,6 +45,7 @@
     <script>
         var baseUrl = @json(url('/') . '/');
         window.DASH_STATUS = @json(\App\Support\Dashboard\StatusPresenter::all());
+        window.DASH_LIVE = @json(\App\Support\Dashboard\LiveConfig::make($__env->yieldContent('live_scope')));
     </script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -53,6 +54,9 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
     <script src="{{ asset('assets/dashboard/js/adminlte.js') }}"></script>
     <script src="{{ asset('assets/dashboard/js/custom.js') }}?v={{ filemtime(public_path('assets/dashboard/js/custom.js')) }}"></script>
+    {{-- Live updates: websocket client (Reverb speaks the Pusher protocol) + the dashboard's live script. --}}
+    <script src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js"></script>
+    <script src="{{ asset('assets/dashboard/js/live.js') }}?v={{ filemtime(public_path('assets/dashboard/js/live.js')) }}"></script>
 
     {{-- Flash messages and validation errors from the last request --}}
     <script>

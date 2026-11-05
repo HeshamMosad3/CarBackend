@@ -82,6 +82,38 @@ class NotificationBadgeController extends Controller
     }
 
     /**
+     * Mark every status-update notification as read (what the bell counts) — called when the user
+     * opens the notifications screen. Chat and "new request" notifications are left alone: they are
+     * cleared by opening the chat / the request, so their own badges stay accurate.
+     */
+    public function markAllRead(Request $request)
+    {
+        try {
+            $user = $request->user();
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'Unauthenticated'], 401);
+            }
+
+            DB::table('notifications')
+                ->where('notifiable_type', get_class($user))
+                ->where('notifiable_id', $user->id)
+                ->whereNull('read_at')
+                ->where(function ($q) {
+                    $q->whereNull('category')->orWhereNotIn('category', NotificationCountsService::BELL_EXCLUDED_CATEGORIES);
+                })
+                ->update(['read_at' => now()]);
+
+            return $this->unreadCounts($request);
+        } catch (\Throwable $e) {
+            Log::error("[NotificationBadgeController] markAllRead ERROR: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
+            return response()->json([
+                'success' => false,
+                'message' => 'حدث خطأ غير متوقع. الرجاء المحاولة لاحقاً.'
+            ], 500);
+        }
+    }
+
+    /**
      * Mark notifications for a specific category/section as read.
      */
     public function markCategoryRead(Request $request)

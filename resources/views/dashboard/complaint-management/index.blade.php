@@ -1,5 +1,6 @@
 @extends('dashboard.layouts.app')
 @section('title', 'الشكاوى')
+@section('live_scope', 'complaints')
 @section('content')
     @php
         $chips = ['' => 'الكل', 'new' => 'جديدة', 'under_review' => 'قيد المراجعة', 'resolved' => 'تم الحل', 'rejected' => 'مرفوضة', 'closed' => 'مغلقة'];
@@ -14,7 +15,7 @@
         <div class="filter-chips mb-3" id="statusFilter" role="group" aria-label="تصفية حسب الحالة">
             @foreach ($chips as $value => $label)
                 <button type="button" class="filter-chip {{ $value === $current ? 'active' : '' }}" data-value="{{ $value }}">
-                    {{ $label }} <span class="count">{{ $value === '' ? $total : $statusCounts[$value] ?? 0 }}</span>
+                    {{ $label }} <span class="count" data-count-key="complaints:{{ $value }}">{{ $value === '' ? $total : $statusCounts[$value] ?? 0 }}</span>
                 </button>
             @endforeach
         </div>

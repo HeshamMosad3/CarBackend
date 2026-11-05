@@ -12,7 +12,7 @@
             ['المراجعة', [S::ReadyForReview]],
             ['التسعير', [S::SearchingCarrier]],
             ['الدفع', [S::AwaitingPayment]],
-            ['الحجز', [S::Paid]],
+            ['تأكيد الشحن', [S::Paid]],
             ['الاستلام', [S::BookingConfirmed]],
             ['في الطريق', [S::PickedUp, S::InTransit]],
             ['التسليم', [S::Delivered]],
@@ -44,7 +44,7 @@
 
     <div class="app-content">
         @unless ($isLegacy)
-            <div class="card mb-3">
+            <div class="card mb-3" data-live-region="ship-steps">
                 <div class="card-body">
                     <div class="d-flex align-items-center gap-2 flex-wrap mb-3">
                         <x-dash.status type="shipping" :value="$status" />
@@ -70,13 +70,13 @@
         @endunless
 
         <div class="row g-3">
-            <div class="col-xl-7 d-flex flex-column gap-3">
+            <div class="col-xl-7 d-flex flex-column gap-3" data-live-region="ship-main">
                 @unless ($isLegacy)
                     @include('dashboard.shipping-request-management.partails.workflow-section')
                 @endunless
                 @include('dashboard.shipping-request-management.partails.shipping-section')
             </div>
-            <div class="col-xl-5 d-flex flex-column gap-3">
+            <div class="col-xl-5 d-flex flex-column gap-3" data-live-region="ship-side">
                 @include('dashboard.shipping-request-management.partails.details-shipping-section')
             </div>
         </div>

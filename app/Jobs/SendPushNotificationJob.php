@@ -17,7 +17,7 @@ use Throwable;
 
 /**
  * Sends one notification to every active device of one user. Unlike
- * app/Jobs/SendNewShippingRequestNotificationJob.php, this does NOT swallow
+ * a job that logs and moves on, this does NOT swallow
  * exceptions — an infrastructure failure (OAuth mint, DB) must propagate so
  * Laravel retries the job and, after $tries, lands it in failed_jobs instead
  * of vanishing into a log line.

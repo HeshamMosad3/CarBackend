@@ -13,18 +13,28 @@ use App\Models\RequestImage;
 
 class NewRequestRepository
 {
-    public function getNewRequests()
+    /**
+     * The requests a vendor should still act on: matched to them, still open, and not yet answered.
+     * This is the single definition behind both the "new requests" list and its unread badge
+     * (NotificationCountsService), so the badge can never count a request the list doesn't show.
+     */
+    public function newRequestsQuery(int $vendorId)
     {
         return RequestEligibleVendor::joinRequestCustomer()
             ->leftJoinCategoryToRequest()
             ->leftJoinCityCustomerToRequest()
-            ->leftJoin('request_responses', function ($join) {
+            ->leftJoin('request_responses', function ($join) use ($vendorId) {
                 $join->on('request_responses.request_id', '=', 'request_customers.id')
-                    ->where('request_responses.vendor_id', '=', getCurrVendorIdHelper());
+                    ->where('request_responses.vendor_id', '=', $vendorId);
             })
-            ->where('request_eligible_vendors.vendor_id', getCurrVendorIdHelper())
+            ->where('request_eligible_vendors.vendor_id', $vendorId)
             ->where('request_customers.status', RequestCustomerStatusEnum::Open->value)
-            ->whereNull('request_responses.id')
+            ->whereNull('request_responses.id');
+    }
+
+    public function getNewRequests()
+    {
+        return $this->newRequestsQuery(getCurrVendorIdHelper())
             ->select(
                 'request_customers.id as request_id',
                 'categories.cat_name_ar',

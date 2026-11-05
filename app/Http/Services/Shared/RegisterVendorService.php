@@ -2,8 +2,10 @@
 
 namespace App\Http\Services\Shared;
 
+use App\Enums\AdminAlertType;
 use App\Enums\StatusUserEnum;
 use App\Enums\user\UserRoleEnum;
+use App\Support\Dashboard\AdminAlerts;
 use App\Http\Repositories\Shared\Devices\UserDeviceRepository;
 use App\Http\Repositories\Shared\RegisterVendorRepository;
 use App\Utils\UploadUtils;
@@ -64,5 +66,15 @@ class RegisterVendorService
                 'file_path' => $fileName,
             ]);
         }
+
+        // The admin has to review and accept (or reject) every new company.
+        AdminAlerts::raise(
+            AdminAlertType::VendorJoin,
+            'طلب انضمام شركة جديد',
+            'شركة «' . $request->companyNameAr . '» سجّلت وتنتظر مراجعتك وقبولها.',
+            route('dashboard.vendors-management.join-requests.show', $createUser->id, false),
+            ['user_id' => $createUser->id],
+            'vendor',
+        );
     }
 }
