@@ -109,13 +109,10 @@ class ShippingRequestManagementController extends Controller
             'tracking_number' => ['nullable', 'string', 'max:255'],
             'pickup_details' => ['nullable', 'string', 'max:2000'],
             'cancel_reason' => ['nullable', 'string', 'max:255'],
-<<<<<<< HEAD
             'pickup_method' => ['nullable', Rule::in(\App\Support\Shipping\PickupMethod::ALL)],
             'oto_delivery_option_id' => ['nullable', 'string', 'max:40'],
             'carrier_pickup_support' => ['nullable', 'string', 'max:30'],
-=======
             'waybill' => self::WAYBILL_RULES,
->>>>>>> c39803df93181c568cd255b08df53c87c0623763
         ]);
 
         if ($validator->fails()) {
